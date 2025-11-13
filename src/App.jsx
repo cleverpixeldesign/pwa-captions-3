@@ -424,10 +424,17 @@ function HearBuddy() {
           
           {/* Heading & Subtitle */}
           <header>
-            <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900">
-              <span className="inline-flex items-center gap-2">
+          <span className="inline-flex items-center gap-3">
                 <span>Hear Buddy</span>
+                <img 
+                  src="/assets/HearBuddy.svg" 
+                  alt="Hear Buddy mascot" 
+                  className="w-14 h-14 md:w-16 md:h-16"
+                  title="Hear Buddy"
+                />
               </span>
+            <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900">
+             
             </h1>
             <p className="text-sm md:text-base text-slate-600 mt-1 max-w-xl">
               A simple, installable PWA that converts speech to live captions.
