@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['assets/favicon.png', 'assets/app-icons/192.png', 'assets/app-icons/512.png'],
+      includeAssets: ['assets/favicon.png', 'assets/app-icons/192.png', 'assets/app-icons/512.png', 'assets/clever-pixel-hear-buddy.png'],
       manifest: {
         name: 'Hear Buddy',
         short_name: 'Buddy',
