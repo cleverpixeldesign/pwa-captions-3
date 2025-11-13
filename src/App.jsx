@@ -596,8 +596,7 @@ function HearBuddy() {
       
       <Footer 
         links={[
-        //   { href: '#work', label: 'Work' },
-        //   { href: '#about', label: 'About' },
+          { href: 'https://buymeacoffee.com/michellereeves', label: '☕ Buy Me a Coffee', target: '_blank', rel: 'noopener noreferrer' },
         ]}
         copyrightText="Crafted with playful precision"
       />
