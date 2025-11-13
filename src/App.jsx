@@ -125,6 +125,7 @@ function HearBuddy() {
   const lastProcessedFinalTextRef = useRef('')
   const transcriptContainerRef = useRef(null)
   const processedTextSetRef = useRef(new Set()) // Track all processed text to prevent duplicates
+  const lastFewSentencesRef = useRef([]) // Track last few sentences for better duplicate detection
 
 
   // Speech Recognition initialization
@@ -228,8 +229,7 @@ function HearBuddy() {
           return
         }
         
-        // If the transcript already ends with this text, skip it (duplicate)
-        // Check both with and without trailing spaces
+        // Check if transcript ends with this text (exact match)
         const endsWithText = currentTranscript && (
           currentTranscript.endsWith(trimmedFinal) ||
           currentTranscript.endsWith(trimmedFinal + ' ') ||
@@ -242,6 +242,52 @@ function HearBuddy() {
           setInterimText('')
           lastInterimTextRef.current = ''
           return
+        }
+        
+        // Check if new text starts with text that's already at the end of transcript
+        // This catches cases like: "The waitress comes..." appearing after "The waitress comes... she belongs..."
+        if (currentTranscript && trimmedFinal.length > 20) {
+          const lastWords = currentTranscript.trim().split(/\s+/).slice(-10).join(' ').toLowerCase()
+          const firstWords = trimmedFinal.toLowerCase().split(/\s+/).slice(0, 10).join(' ')
+          
+          // If the new text starts with words that are already at the end, it's likely a duplicate
+          if (lastWords.includes(firstWords) && firstWords.length > 15) {
+            processedTextSetRef.current.add(rawTextKey)
+            processedTextSetRef.current.add(normalizedKey)
+            setInterimText('')
+            lastInterimTextRef.current = ''
+            return
+          }
+        }
+        
+        // Check if this text is an exact duplicate of the very last sentence
+        // Only check the last sentence to avoid false positives with legitimate repetitions
+        if (currentTranscript && lastFewSentencesRef.current.length > 0) {
+          const lastSentence = lastFewSentencesRef.current[lastFewSentencesRef.current.length - 1]
+          const normalizedLastSentence = lastSentence.toLowerCase().replace(/[.!?]/g, '').trim()
+          const normalizedFinal = normalizedKey.trim()
+          
+          // Check for exact match
+          if (normalizedLastSentence === normalizedFinal) {
+            processedTextSetRef.current.add(rawTextKey)
+            processedTextSetRef.current.add(normalizedKey)
+            setInterimText('')
+            lastInterimTextRef.current = ''
+            return
+          }
+          
+          // Check if new text starts with the last sentence (duplicate with extension)
+          if (normalizedFinal.startsWith(normalizedLastSentence) && normalizedFinal.length > normalizedLastSentence.length) {
+            // Only flag if the overlap is significant (at least 80% of last sentence)
+            const overlapRatio = normalizedLastSentence.length / normalizedFinal.length
+            if (overlapRatio > 0.8 && normalizedLastSentence.length > 20) {
+              processedTextSetRef.current.add(rawTextKey)
+              processedTextSetRef.current.add(normalizedKey)
+              setInterimText('')
+              lastInterimTextRef.current = ''
+              return
+            }
+          }
         }
         
         // Also check if we just processed this exact text
@@ -292,6 +338,11 @@ function HearBuddy() {
           const separator = prev && !prev.endsWith(' ') ? ' ' : ''
           const newTranscript = prev + separator + punctuated + ' '
           transcriptRef.current = newTranscript
+          
+          // Track this sentence for duplicate detection
+          const sentences = newTranscript.split(/[.!?]+\s+/).filter(s => s.trim())
+          lastFewSentencesRef.current = sentences.slice(-5) // Keep last 5 sentences
+          
           return newTranscript
         })
         setInterimText('') // Clear interim when final text is added
@@ -348,6 +399,52 @@ function HearBuddy() {
               return
             }
             
+            // Check if new text starts with text that's already at the end of transcript
+            // This catches cases like: "The waitress comes..." appearing after "The waitress comes... she belongs..."
+            if (currentTranscript && trimmedInterim.length > 20) {
+              const lastWords = currentTranscript.trim().split(/\s+/).slice(-10).join(' ').toLowerCase()
+              const firstWords = trimmedInterim.toLowerCase().split(/\s+/).slice(0, 10).join(' ')
+              
+              // If the new text starts with words that are already at the end, it's likely a duplicate
+              if (lastWords.includes(firstWords) && firstWords.length > 15) {
+                processedTextSetRef.current.add(rawTextKey)
+                processedTextSetRef.current.add(normalizedKey)
+                setInterimText('')
+                lastInterimTextRef.current = ''
+                return
+              }
+            }
+            
+            // Check if this text is an exact duplicate of the very last sentence
+            // Only check the last sentence to avoid false positives with legitimate repetitions
+            if (currentTranscript && lastFewSentencesRef.current.length > 0) {
+              const lastSentence = lastFewSentencesRef.current[lastFewSentencesRef.current.length - 1]
+              const normalizedLastSentence = lastSentence.toLowerCase().replace(/[.!?]/g, '').trim()
+              const normalizedInterim = normalizedKey.trim()
+              
+              // Check for exact match
+              if (normalizedLastSentence === normalizedInterim) {
+                processedTextSetRef.current.add(rawTextKey)
+                processedTextSetRef.current.add(normalizedKey)
+                setInterimText('')
+                lastInterimTextRef.current = ''
+                return
+              }
+              
+              // Check if new text starts with the last sentence (duplicate with extension)
+              if (normalizedInterim.startsWith(normalizedLastSentence) && normalizedInterim.length > normalizedLastSentence.length) {
+                // Only flag if the overlap is significant (at least 80% of last sentence)
+                const overlapRatio = normalizedLastSentence.length / normalizedInterim.length
+                if (overlapRatio > 0.8 && normalizedLastSentence.length > 20) {
+                  processedTextSetRef.current.add(rawTextKey)
+                  processedTextSetRef.current.add(normalizedKey)
+                  setInterimText('')
+                  lastInterimTextRef.current = ''
+                  return
+                }
+              }
+            }
+            
             // Mark as processed BEFORE processing to prevent race conditions
             processedTextSetRef.current.add(rawTextKey)
             processedTextSetRef.current.add(normalizedKey)
@@ -389,6 +486,11 @@ function HearBuddy() {
               const separator = prev && !prev.endsWith(' ') ? ' ' : ''
               const newTranscript = prev + separator + punctuated + ' '
               transcriptRef.current = newTranscript
+              
+              // Track this sentence for duplicate detection
+              const sentences = newTranscript.split(/[.!?]+\s+/).filter(s => s.trim())
+              lastFewSentencesRef.current = sentences.slice(-5) // Keep last 5 sentences
+              
               return newTranscript
             })
             setInterimText('')
@@ -514,6 +616,7 @@ function HearBuddy() {
     // Reset tracking refs when starting fresh
     lastProcessedFinalTextRef.current = ''
     processedTextSetRef.current.clear()
+    lastFewSentencesRef.current = []
     
     setListening(true)
     trackStartListening()
@@ -567,6 +670,11 @@ function HearBuddy() {
           const separator = prev && !prev.endsWith(' ') ? ' ' : ''
           const newTranscript = prev + separator + punctuated + ' '
           transcriptRef.current = newTranscript
+          
+          // Track this sentence for duplicate detection
+          const sentences = newTranscript.split(/[.!?]+\s+/).filter(s => s.trim())
+          lastFewSentencesRef.current = sentences.slice(-5) // Keep last 5 sentences
+          
           return newTranscript
         })
       }
@@ -593,6 +701,7 @@ function HearBuddy() {
     lastInterimTextRef.current = ''
     lastProcessedFinalTextRef.current = ''
     processedTextSetRef.current.clear()
+    lastFewSentencesRef.current = []
   }
 
   const displayTranscript = () => {
