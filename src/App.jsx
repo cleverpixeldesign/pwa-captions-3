@@ -118,14 +118,13 @@ function HearBuddy() {
   
   const recognitionRef = useRef(null)
   const listeningRef = useRef(false)
-  const punctuationSettingsRef = useRef(punctuationSettings)
-  const transcriptRef = useRef('')
+  const transcriptContainerRef = useRef(null)
+  const transcriptElRef = useRef(null) // Ref for transcript scroll element
   const interimTimeoutRef = useRef(null)
   const lastInterimTextRef = useRef('')
-  const lastProcessedFinalTextRef = useRef('')
-  const transcriptContainerRef = useRef(null)
-  const processedTextSetRef = useRef(new Set()) // Track all processed text to prevent duplicates
-  const lastFewSentencesRef = useRef([]) // Track last few sentences for better duplicate detection
+  const lastFinalTextRef = useRef('') // Track last final text to prevent immediate duplicates
+  const transcriptRef = useRef('') // Keep ref of transcript for immediate checks
+  const punctuationSettingsRef = useRef(punctuationSettings) // Ref for punctuation settings
 
 
   // Speech Recognition initialization
@@ -184,18 +183,13 @@ function HearBuddy() {
     }
 
     recognition.onresult = (event) => {
-      // On iOS Safari, the same results can be processed multiple times
-      // We need to deduplicate by checking what we've already added to the transcript
-      
-      // Guard against empty or invalid results
+      // Basic speech recognition with minimal duplicate detection
       if (!event.results || event.results.length === 0) return
-      if (event.resultIndex >= event.results.length) return
       
       let interim = ''
       let finalText = ''
       
-      // Process results starting from resultIndex
-      // On iOS, resultIndex might not work correctly, so we'll deduplicate by content
+      // Process all results from resultIndex
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const res = event.results[i]
         if (!res || !res[0]) continue
@@ -207,82 +201,64 @@ function HearBuddy() {
         }
       }
 
-      // Only process final text if we have new final text
+      // Handle final text - add it with optional punctuation
       if (finalText && finalText.trim()) {
-        // Clear any pending interim timeout since we have final text
+        // Clear any pending interim timeout
         if (interimTimeoutRef.current) {
           clearTimeout(interimTimeoutRef.current)
           interimTimeoutRef.current = null
         }
         
         const trimmedFinal = finalText.trim()
-        const currentTranscript = transcriptRef.current.trim() // Use ref for immediate check
         
-        // Create unique keys for both raw and potential punctuated versions
-        const rawTextKey = trimmedFinal.toLowerCase()
-        const normalizedKey = trimmedFinal.toLowerCase().replace(/[.!?]/g, '') // Remove punctuation for comparison
-        
-        // Check if we've already processed this exact text (using ref, not state)
-        if (processedTextSetRef.current.has(rawTextKey) || processedTextSetRef.current.has(normalizedKey)) {
+        // Check if this is the exact same text we just processed
+        if (trimmedFinal === lastFinalTextRef.current) {
           setInterimText('')
           lastInterimTextRef.current = ''
           return
         }
         
-        // Check if transcript ends with this text (exact match)
-        const endsWithText = currentTranscript && (
-          currentTranscript.endsWith(trimmedFinal) ||
-          currentTranscript.endsWith(trimmedFinal + ' ') ||
-          currentTranscript.trimEnd().endsWith(trimmedFinal)
-        )
+        // Apply punctuation if enabled
+        const currentTranscript = transcriptRef.current
+        const isNewSentence = !currentTranscript || /[.!?]\s*$/.test(currentTranscript.trim())
+        const textToAdd = punctuationSettingsRef.current.autoPunctuation
+          ? addPunctuation(trimmedFinal, punctuationSettingsRef.current, isNewSentence)
+          : trimmedFinal
+        const trimmedTextToAdd = textToAdd.trim()
         
-        if (endsWithText) {
-          processedTextSetRef.current.add(rawTextKey)
-          processedTextSetRef.current.add(normalizedKey)
-          setInterimText('')
-          lastInterimTextRef.current = ''
-          return
-        }
-        
-        // Check if new text starts with text that's already at the end of transcript
-        // This catches cases like: "The waitress comes..." appearing after "The waitress comes... she belongs..."
-        if (currentTranscript && trimmedFinal.length > 20) {
-          const lastWords = currentTranscript.trim().split(/\s+/).slice(-10).join(' ').toLowerCase()
-          const firstWords = trimmedFinal.toLowerCase().split(/\s+/).slice(0, 10).join(' ')
+        // Check if transcript already contains this text (for duplicates in run-on sentences)
+        // Check BOTH raw and punctuated versions to prevent duplicates
+        if (currentTranscript) {
+          // Normalize for comparison (lowercase, remove extra spaces and punctuation)
+          const normalizedTranscript = currentTranscript.toLowerCase().replace(/\s+/g, ' ').replace(/[.!?]/g, '').trim()
+          const normalizedRaw = trimmedFinal.toLowerCase().replace(/\s+/g, ' ').replace(/[.!?]/g, '').trim()
+          const normalizedPunctuated = trimmedTextToAdd.toLowerCase().replace(/\s+/g, ' ').replace(/[.!?]/g, '').trim()
           
-          // If the new text starts with words that are already at the end, it's likely a duplicate
-          if (lastWords.includes(firstWords) && firstWords.length > 15) {
-            processedTextSetRef.current.add(rawTextKey)
-            processedTextSetRef.current.add(normalizedKey)
-            setInterimText('')
-            lastInterimTextRef.current = ''
-            return
-          }
-        }
-        
-        // Check if this text is an exact duplicate of the very last sentence
-        // Only check the last sentence to avoid false positives with legitimate repetitions
-        if (currentTranscript && lastFewSentencesRef.current.length > 0) {
-          const lastSentence = lastFewSentencesRef.current[lastFewSentencesRef.current.length - 1]
-          const normalizedLastSentence = lastSentence.toLowerCase().replace(/[.!?]/g, '').trim()
-          const normalizedFinal = normalizedKey.trim()
-          
-          // Check for exact match
-          if (normalizedLastSentence === normalizedFinal) {
-            processedTextSetRef.current.add(rawTextKey)
-            processedTextSetRef.current.add(normalizedKey)
+          // Check if the transcript already ends with raw text
+          if (normalizedTranscript.endsWith(normalizedRaw) || 
+              normalizedTranscript.endsWith(normalizedRaw + ' ')) {
+            lastFinalTextRef.current = trimmedFinal
             setInterimText('')
             lastInterimTextRef.current = ''
             return
           }
           
-          // Check if new text starts with the last sentence (duplicate with extension)
-          if (normalizedFinal.startsWith(normalizedLastSentence) && normalizedFinal.length > normalizedLastSentence.length) {
-            // Only flag if the overlap is significant (at least 80% of last sentence)
-            const overlapRatio = normalizedLastSentence.length / normalizedFinal.length
-            if (overlapRatio > 0.8 && normalizedLastSentence.length > 20) {
-              processedTextSetRef.current.add(rawTextKey)
-              processedTextSetRef.current.add(normalizedKey)
+          // Check if the transcript already ends with punctuated version
+          if (normalizedTranscript.endsWith(normalizedPunctuated) || 
+              normalizedTranscript.endsWith(normalizedPunctuated + ' ')) {
+            lastFinalTextRef.current = trimmedFinal
+            setInterimText('')
+            lastInterimTextRef.current = ''
+            return
+          }
+          
+          // For longer text (> 20 chars), check if it's already in the transcript
+          // This catches duplicates in run-on sentences
+          // Check both raw and punctuated versions
+          if (normalizedRaw.length > 20) {
+            const lastWords = normalizedTranscript.slice(-normalizedRaw.length - 10)
+            if (lastWords.includes(normalizedRaw) || lastWords.includes(normalizedPunctuated)) {
+              lastFinalTextRef.current = trimmedFinal
               setInterimText('')
               lastInterimTextRef.current = ''
               return
@@ -290,154 +266,81 @@ function HearBuddy() {
           }
         }
         
-        // Also check if we just processed this exact text
-        if (trimmedFinal === lastProcessedFinalTextRef.current) {
-          setInterimText('')
-          lastInterimTextRef.current = ''
-          return
-        }
-        
-        // Mark as processed BEFORE processing to prevent race conditions
-        processedTextSetRef.current.add(rawTextKey)
-        processedTextSetRef.current.add(normalizedKey)
-        
-        // Prevent memory leak by limiting Set size
-        if (processedTextSetRef.current.size > MAX_PROCESSED_TEXT_ENTRIES) {
-          const entries = Array.from(processedTextSetRef.current)
-          processedTextSetRef.current = new Set(entries.slice(-MAX_PROCESSED_TEXT_ENTRIES))
-        }
-        
-        lastProcessedFinalTextRef.current = trimmedFinal
-        
+        // Add the text (with punctuation if enabled)
         setTranscript(prev => {
-          // Double-check using current state (defensive check)
-          const stateTranscript = prev.trim()
-          if (stateTranscript && (
-            stateTranscript.endsWith(trimmedFinal) ||
-            stateTranscript.endsWith(trimmedFinal + ' ') ||
-            stateTranscript.trimEnd().endsWith(trimmedFinal)
-          )) {
+          const prevTrimmed = prev.trim()
+          // Double-check: if transcript already ends with this text (raw or punctuated), don't add it
+          if (prevTrimmed.endsWith(trimmedFinal) || 
+              prevTrimmed.endsWith(trimmedFinal + ' ') ||
+              prevTrimmed.endsWith(trimmedTextToAdd) || 
+              prevTrimmed.endsWith(trimmedTextToAdd + ' ')) {
             return prev
           }
           
-          // Check if this is a new sentence (previous text ends with punctuation or is empty)
-          const isNewSentence = !prev || /[.!?]\s*$/.test(prev.trim())
-          const punctuated = addPunctuation(finalText, punctuationSettingsRef.current, isNewSentence)
-          
-          // Final check: make sure the punctuated text isn't already at the end
-          const trimmedPunctuated = punctuated.trim()
-          if (stateTranscript && (
-            stateTranscript.endsWith(trimmedPunctuated) ||
-            stateTranscript.endsWith(trimmedPunctuated + ' ') ||
-            stateTranscript.trimEnd().endsWith(trimmedPunctuated)
-          )) {
-            return prev
-          }
-          
-          // Add space between sentences if previous text doesn't end with space
+          // Add the text with a space
           const separator = prev && !prev.endsWith(' ') ? ' ' : ''
-          const newTranscript = prev + separator + punctuated + ' '
+          const newTranscript = prev + separator + trimmedTextToAdd + ' '
           transcriptRef.current = newTranscript
-          
-          // Track this sentence for duplicate detection
-          const sentences = newTranscript.split(/[.!?]+\s+/).filter(s => s.trim())
-          lastFewSentencesRef.current = sentences.slice(-5) // Keep last 5 sentences
-          
+          lastFinalTextRef.current = trimmedFinal
           return newTranscript
         })
-        setInterimText('') // Clear interim when final text is added
+        
+        setInterimText('')
         lastInterimTextRef.current = ''
       }
 
-      // Update interim display with real-time capitalization
+      // Handle interim text - display with optional capitalization
       if (interim) {
-        // Check if this is a new sentence using the ref to get current transcript
+        // Apply capitalization if it's a new sentence
         const currentTranscript = transcriptRef.current
         const isNewSentence = !currentTranscript || /[.!?]\s*$/.test(currentTranscript.trim())
-        
-        // Capitalize first letter if it's a new sentence
-        const capitalizedInterim = isNewSentence && interim.length > 0 
+        const displayInterim = isNewSentence && interim.length > 0 
           ? capitalizeFirst(interim) 
           : interim
-        setInterimText(capitalizedInterim)
-        lastInterimTextRef.current = capitalizedInterim
+        
+        setInterimText(displayInterim)
+        lastInterimTextRef.current = displayInterim
         
         // Clear any existing timeout
         if (interimTimeoutRef.current) {
           clearTimeout(interimTimeoutRef.current)
         }
         
-        // Set a timeout to finalize interim text if it hasn't changed
-        // This makes sentence endings appear faster
+        // Set timeout to finalize interim text if it hasn't changed
         interimTimeoutRef.current = setTimeout(() => {
           const currentInterim = lastInterimTextRef.current
           if (currentInterim && currentInterim.trim().length > 0) {
             const trimmedInterim = currentInterim.trim()
-            const rawTextKey = trimmedInterim.toLowerCase()
-            const normalizedKey = trimmedInterim.toLowerCase().replace(/[.!?]/g, '')
             
-            // Check if this text has already been processed (prevent duplicates)
-            if (processedTextSetRef.current.has(rawTextKey) || processedTextSetRef.current.has(normalizedKey)) {
-              setInterimText('')
-              lastInterimTextRef.current = ''
-              return
-            }
+            // Apply punctuation if enabled
+            const currentTranscript = transcriptRef.current
+            const isNewSentence = !currentTranscript || /[.!?]\s*$/.test(currentTranscript.trim())
+            const textToAdd = punctuationSettingsRef.current.autoPunctuation
+              ? addPunctuation(trimmedInterim, punctuationSettingsRef.current, isNewSentence)
+              : trimmedInterim
+            const trimmedTextToAdd = textToAdd.trim()
             
-            // Check if this text is already in the transcript (use ref for immediate check)
-            const currentTranscript = transcriptRef.current.trim()
-            const endsWithText = currentTranscript && (
-              currentTranscript.endsWith(trimmedInterim) ||
-              currentTranscript.endsWith(trimmedInterim + ' ') ||
-              currentTranscript.trimEnd().endsWith(trimmedInterim)
-            )
-            
-            if (endsWithText) {
-              processedTextSetRef.current.add(rawTextKey)
-              processedTextSetRef.current.add(normalizedKey)
-              setInterimText('')
-              lastInterimTextRef.current = ''
-              return
-            }
-            
-            // Check if new text starts with text that's already at the end of transcript
-            // This catches cases like: "The waitress comes..." appearing after "The waitress comes... she belongs..."
-            if (currentTranscript && trimmedInterim.length > 20) {
-              const lastWords = currentTranscript.trim().split(/\s+/).slice(-10).join(' ').toLowerCase()
-              const firstWords = trimmedInterim.toLowerCase().split(/\s+/).slice(0, 10).join(' ')
+            // Check if transcript already contains this text
+            // Check BOTH raw and punctuated versions
+            if (currentTranscript) {
+              const normalizedTranscript = currentTranscript.toLowerCase().replace(/\s+/g, ' ').replace(/[.!?]/g, '').trim()
+              const normalizedRaw = trimmedInterim.toLowerCase().replace(/\s+/g, ' ').replace(/[.!?]/g, '').trim()
+              const normalizedPunctuated = trimmedTextToAdd.toLowerCase().replace(/\s+/g, ' ').replace(/[.!?]/g, '').trim()
               
-              // If the new text starts with words that are already at the end, it's likely a duplicate
-              if (lastWords.includes(firstWords) && firstWords.length > 15) {
-                processedTextSetRef.current.add(rawTextKey)
-                processedTextSetRef.current.add(normalizedKey)
-                setInterimText('')
-                lastInterimTextRef.current = ''
-                return
-              }
-            }
-            
-            // Check if this text is an exact duplicate of the very last sentence
-            // Only check the last sentence to avoid false positives with legitimate repetitions
-            if (currentTranscript && lastFewSentencesRef.current.length > 0) {
-              const lastSentence = lastFewSentencesRef.current[lastFewSentencesRef.current.length - 1]
-              const normalizedLastSentence = lastSentence.toLowerCase().replace(/[.!?]/g, '').trim()
-              const normalizedInterim = normalizedKey.trim()
-              
-              // Check for exact match
-              if (normalizedLastSentence === normalizedInterim) {
-                processedTextSetRef.current.add(rawTextKey)
-                processedTextSetRef.current.add(normalizedKey)
+              // Check if the transcript already ends with this text (raw or punctuated)
+              if (normalizedTranscript.endsWith(normalizedRaw) || 
+                  normalizedTranscript.endsWith(normalizedRaw + ' ') ||
+                  normalizedTranscript.endsWith(normalizedPunctuated) || 
+                  normalizedTranscript.endsWith(normalizedPunctuated + ' ')) {
                 setInterimText('')
                 lastInterimTextRef.current = ''
                 return
               }
               
-              // Check if new text starts with the last sentence (duplicate with extension)
-              if (normalizedInterim.startsWith(normalizedLastSentence) && normalizedInterim.length > normalizedLastSentence.length) {
-                // Only flag if the overlap is significant (at least 80% of last sentence)
-                const overlapRatio = normalizedLastSentence.length / normalizedInterim.length
-                if (overlapRatio > 0.8 && normalizedLastSentence.length > 20) {
-                  processedTextSetRef.current.add(rawTextKey)
-                  processedTextSetRef.current.add(normalizedKey)
+              // For longer text, check if it's already in the transcript
+              if (normalizedRaw.length > 20) {
+                const lastWords = normalizedTranscript.slice(-normalizedRaw.length - 10)
+                if (lastWords.includes(normalizedRaw) || lastWords.includes(normalizedPunctuated)) {
                   setInterimText('')
                   lastInterimTextRef.current = ''
                   return
@@ -445,58 +348,28 @@ function HearBuddy() {
               }
             }
             
-            // Mark as processed BEFORE processing to prevent race conditions
-            processedTextSetRef.current.add(rawTextKey)
-            processedTextSetRef.current.add(normalizedKey)
-            
-            // Prevent memory leak by limiting Set size
-            if (processedTextSetRef.current.size > MAX_PROCESSED_TEXT_ENTRIES) {
-              const entries = Array.from(processedTextSetRef.current)
-              processedTextSetRef.current = new Set(entries.slice(-MAX_PROCESSED_TEXT_ENTRIES))
-            }
-            
-            lastProcessedFinalTextRef.current = trimmedInterim
-            
-            // Finalize the interim text
+            // Add the text (with punctuation if enabled)
             setTranscript(prev => {
-              // Double-check using current state (defensive check)
-              const stateTranscript = prev.trim()
-              if (stateTranscript && (
-                stateTranscript.endsWith(trimmedInterim) ||
-                stateTranscript.endsWith(trimmedInterim + ' ') ||
-                stateTranscript.trimEnd().endsWith(trimmedInterim)
-              )) {
+              const prevTrimmed = prev.trim()
+              // Double-check: if transcript already ends with this text (raw or punctuated), don't add it
+              if (prevTrimmed.endsWith(trimmedInterim) || 
+                  prevTrimmed.endsWith(trimmedInterim + ' ') ||
+                  prevTrimmed.endsWith(trimmedTextToAdd) || 
+                  prevTrimmed.endsWith(trimmedTextToAdd + ' ')) {
                 return prev
               }
               
-              const currentTranscript = transcriptRef.current
-              const isNewSentence = !currentTranscript || /[.!?]\s*$/.test(currentTranscript.trim())
-              const punctuated = addPunctuation(trimmedInterim, punctuationSettingsRef.current, isNewSentence)
-              
-              // Check again if punctuated version is already there
-              const trimmedPunctuated = punctuated.trim()
-              if (stateTranscript && (
-                stateTranscript.endsWith(trimmedPunctuated) ||
-                stateTranscript.endsWith(trimmedPunctuated + ' ') ||
-                stateTranscript.trimEnd().endsWith(trimmedPunctuated)
-              )) {
-                return prev
-              }
-              
+              // Add the text with a space
               const separator = prev && !prev.endsWith(' ') ? ' ' : ''
-              const newTranscript = prev + separator + punctuated + ' '
+              const newTranscript = prev + separator + trimmedTextToAdd + ' '
               transcriptRef.current = newTranscript
-              
-              // Track this sentence for duplicate detection
-              const sentences = newTranscript.split(/[.!?]+\s+/).filter(s => s.trim())
-              lastFewSentencesRef.current = sentences.slice(-5) // Keep last 5 sentences
-              
               return newTranscript
             })
+            
             setInterimText('')
             lastInterimTextRef.current = ''
           }
-        }, INTERIM_TIMEOUT_MS) // Finalize after timeout of no new speech
+        }, INTERIM_TIMEOUT_MS)
       } else {
         setInterimText('')
         lastInterimTextRef.current = ''
@@ -532,15 +405,21 @@ function HearBuddy() {
     }
   }, []) // Initialize once
 
-  // Update punctuation settings ref when settings change
-  useEffect(() => {
-    punctuationSettingsRef.current = punctuationSettings
-  }, [punctuationSettings])
 
-  // Update transcript ref when transcript changes
+  // Handle Escape key to close settings panel
   useEffect(() => {
-    transcriptRef.current = transcript
-  }, [transcript])
+    if (!showSettings) return
+    
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') {
+        setShowSettings(false)
+        trackSettingsToggle(false)
+      }
+    }
+    
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [showSettings])
 
   // Handle listening state changes
   useEffect(() => {
@@ -569,10 +448,9 @@ function HearBuddy() {
 
   // Auto-scroll transcript container and page (debounced for performance)
   useEffect(() => {
-    const transcriptEl = document.getElementById('transcript')
-    if (transcriptEl) {
+    if (transcriptElRef.current) {
       // Scroll the transcript container to bottom
-      transcriptEl.scrollTop = transcriptEl.scrollHeight
+      transcriptElRef.current.scrollTop = transcriptElRef.current.scrollHeight
     }
     
     // Debounce page scrolling to prevent performance issues
@@ -613,11 +491,6 @@ function HearBuddy() {
     if (!recognitionRef.current) return
     if (listening) return
     
-    // Reset tracking refs when starting fresh
-    lastProcessedFinalTextRef.current = ''
-    processedTextSetRef.current.clear()
-    lastFewSentencesRef.current = []
-    
     setListening(true)
     trackStartListening()
   }
@@ -635,49 +508,20 @@ function HearBuddy() {
     const currentInterim = lastInterimTextRef.current
     if (currentInterim && currentInterim.trim().length > 0) {
       const trimmedInterim = currentInterim.trim()
-      const rawTextKey = trimmedInterim.toLowerCase()
-      const normalizedKey = trimmedInterim.toLowerCase().replace(/[.!?]/g, '')
-      const currentTranscript = transcriptRef.current.trim()
       
-      // Check if already processed or in transcript
-      const alreadyProcessed = processedTextSetRef.current.has(rawTextKey) || 
-                               processedTextSetRef.current.has(normalizedKey) ||
-                               (currentTranscript && (
-                                 currentTranscript.endsWith(trimmedInterim) ||
-                                 currentTranscript.endsWith(trimmedInterim + ' ') ||
-                                 currentTranscript.trimEnd().endsWith(trimmedInterim)
-                               ))
-      
-      if (!alreadyProcessed) {
-        processedTextSetRef.current.add(rawTextKey)
-        processedTextSetRef.current.add(normalizedKey)
-        lastProcessedFinalTextRef.current = trimmedInterim
+      // Simple duplicate check: only check if transcript already ends with this text
+      setTranscript(prev => {
+        const prevTrimmed = prev.trim()
+        // If transcript already ends with this text, don't add it
+        if (prevTrimmed.endsWith(trimmedInterim) || 
+            prevTrimmed.endsWith(trimmedInterim + ' ')) {
+          return prev
+        }
         
-        setTranscript(prev => {
-          const stateTranscript = prev.trim()
-          if (stateTranscript && (
-            stateTranscript.endsWith(trimmedInterim) ||
-            stateTranscript.endsWith(trimmedInterim + ' ') ||
-            stateTranscript.trimEnd().endsWith(trimmedInterim)
-          )) {
-            return prev
-          }
-          
-          const currentTranscript = transcriptRef.current
-          const isNewSentence = !currentTranscript || /[.!?]\s*$/.test(currentTranscript.trim())
-          const punctuated = addPunctuation(trimmedInterim, punctuationSettingsRef.current, isNewSentence)
-          
-          const separator = prev && !prev.endsWith(' ') ? ' ' : ''
-          const newTranscript = prev + separator + punctuated + ' '
-          transcriptRef.current = newTranscript
-          
-          // Track this sentence for duplicate detection
-          const sentences = newTranscript.split(/[.!?]+\s+/).filter(s => s.trim())
-          lastFewSentencesRef.current = sentences.slice(-5) // Keep last 5 sentences
-          
-          return newTranscript
-        })
-      }
+        // Add the text with a space
+        const separator = prev && !prev.endsWith(' ') ? ' ' : ''
+        return prev + separator + trimmedInterim + ' '
+      })
     }
     
     setListening(false)
@@ -699,10 +543,18 @@ function HearBuddy() {
     transcriptRef.current = ''
     setInterimText('')
     lastInterimTextRef.current = ''
-    lastProcessedFinalTextRef.current = ''
-    processedTextSetRef.current.clear()
-    lastFewSentencesRef.current = []
+    lastFinalTextRef.current = ''
   }
+
+  // Update transcript ref when transcript changes
+  useEffect(() => {
+    transcriptRef.current = transcript
+  }, [transcript])
+
+  // Update punctuation settings ref when settings change
+  useEffect(() => {
+    punctuationSettingsRef.current = punctuationSettings
+  }, [punctuationSettings])
 
   const displayTranscript = () => {
     if (interimText) {
@@ -854,15 +706,16 @@ function HearBuddy() {
               aria-labelledby="settings-heading"
             >
               <h3 id="settings-heading" className="m-0 mb-2 text-sm font-bold text-slate-900">Punctuation Settings</h3>
-              {/* <label className="flex items-center gap-2 py-1.5 cursor-pointer text-slate-700">
+              <label className="flex items-center gap-2 py-2 min-h-[44px] cursor-pointer text-slate-700">
                 <input
                   type="checkbox"
                   checked={punctuationSettings.autoPunctuation}
                   onChange={(e) => setPunctuationSettings(prev => ({ ...prev, autoPunctuation: e.target.checked }))}
-                  className="w-4 h-4 cursor-pointer accent-[var(--cp-blue)] disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Auto punctuation"
+                  className="w-5 h-5 cursor-pointer accent-[var(--cp-blue)] disabled:opacity-50 disabled:cursor-not-allowed"
                 />
                 <span className="select-none text-sm">Auto punctuation</span>
-              </label> */}
+              </label>
               <label className="flex items-center gap-2 py-2 min-h-[44px] cursor-pointer text-slate-700">
                 <input
                   type="checkbox"
@@ -913,6 +766,7 @@ function HearBuddy() {
                 ) : (
                   <div
                     id="transcript"
+                    ref={transcriptElRef}
                     role="status"
                     aria-live="polite"
                     aria-atomic="false"

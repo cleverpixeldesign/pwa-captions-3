@@ -13,21 +13,45 @@ export default function Contact() {
     event.preventDefault();
     setIsSubmitting(true);
     setResult("Sending....");
-    const formData = new FormData(event.target);
-    formData.append("access_key", "ee96c239-0d68-44f8-bc82-47014c18a7cb");
+    
+    try {
+      const formData = new FormData(event.target);
+      // Use environment variable for API key (fallback for development)
+      const apiKey = import.meta.env.VITE_WEB3FORMS_KEY || "ee96c239-0d68-44f8-bc82-47014c18a7cb";
+      formData.append("access_key", apiKey);
 
-    const response = await fetch("https://api.web3forms.com/submit", {
-      method: "POST",
-      body: formData
-    });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
-    const data = await response.json();
-    if (data.success) {
-      setIsSuccess(true);
-      setResult("Form Submitted Successfully");
-      event.target.reset();
-    } else {
-      setResult("Error submitting form. Please try again.");
+      const response = await fetch("https://api.web3forms.com/submit", {
+        method: "POST",
+        body: formData,
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        setIsSuccess(true);
+        setResult("Form Submitted Successfully");
+        event.target.reset();
+      } else {
+        setResult("Error submitting form. Please try again.");
+        setIsSubmitting(false);
+      }
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        setResult("Request timed out. Please try again.");
+      } else if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        setResult("Network error. Please check your connection.");
+      } else {
+        setResult("Error submitting form. Please try again.");
+      }
       setIsSubmitting(false);
     }
   };

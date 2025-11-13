@@ -156,3 +156,5 @@ sw.js.map
 workbox-*.js
 workbox-*.js.map
 .vercel
+DUPLICATE_DETECTION_ANALYSIS.md
+SENIOR_CODE_REVIEW.md
