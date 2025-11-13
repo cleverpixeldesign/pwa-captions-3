@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom'
 import { Header, Button, Card, Footer } from './cleverpixel-design-system/src';
 import Contact from './pages/Contact'
 import InstallButton from './components/InstallButton'
+import { CleverFidgetSpinner } from './components/CleverFidgetSpinner'
 import './App.css'
 
 // Question detection patterns
@@ -111,6 +112,8 @@ function HearBuddy() {
   const listeningRef = useRef(false)
   const punctuationSettingsRef = useRef(punctuationSettings)
   const transcriptRef = useRef('')
+  const interimTimeoutRef = useRef(null)
+  const lastInterimTextRef = useRef('')
 
 
   // Speech Recognition initialization
@@ -175,6 +178,12 @@ function HearBuddy() {
       }
 
       if (finalText) {
+        // Clear any pending interim timeout since we have final text
+        if (interimTimeoutRef.current) {
+          clearTimeout(interimTimeoutRef.current)
+          interimTimeoutRef.current = null
+        }
+        
         setTranscript(prev => {
           // Check if this is a new sentence (previous text ends with punctuation or is empty)
           const isNewSentence = !prev || /[.!?]\s*$/.test(prev.trim())
@@ -187,6 +196,7 @@ function HearBuddy() {
           return newTranscript
         })
         setInterimText('') // Clear interim when final text is added
+        lastInterimTextRef.current = ''
       }
 
       // Update interim display with real-time capitalization
@@ -200,14 +210,52 @@ function HearBuddy() {
           ? capitalizeFirst(interim) 
           : interim
         setInterimText(capitalizedInterim)
+        lastInterimTextRef.current = capitalizedInterim
+        
+        // Clear any existing timeout
+        if (interimTimeoutRef.current) {
+          clearTimeout(interimTimeoutRef.current)
+        }
+        
+        // Set a timeout to finalize interim text if it hasn't changed
+        // This makes sentence endings appear faster
+        interimTimeoutRef.current = setTimeout(() => {
+          const currentInterim = lastInterimTextRef.current
+          if (currentInterim && currentInterim.trim().length > 0) {
+            // Finalize the interim text
+            setTranscript(prev => {
+              const currentTranscript = transcriptRef.current
+              const isNewSentence = !currentTranscript || /[.!?]\s*$/.test(currentTranscript.trim())
+              const punctuated = addPunctuation(currentInterim.trim(), punctuationSettingsRef.current, isNewSentence)
+              
+              const separator = prev && !prev.endsWith(' ') ? ' ' : ''
+              const newTranscript = prev + separator + punctuated + ' '
+              transcriptRef.current = newTranscript
+              return newTranscript
+            })
+            setInterimText('')
+            lastInterimTextRef.current = ''
+          }
+        }, 600) // Finalize after 0.6 seconds of no new speech
       } else {
         setInterimText('')
+        lastInterimTextRef.current = ''
+        // Clear timeout when interim is cleared
+        if (interimTimeoutRef.current) {
+          clearTimeout(interimTimeoutRef.current)
+          interimTimeoutRef.current = null
+        }
       }
     }
 
     recognitionRef.current = recognition
 
     return () => {
+      // Clean up timeout on unmount
+      if (interimTimeoutRef.current) {
+        clearTimeout(interimTimeoutRef.current)
+        interimTimeoutRef.current = null
+      }
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop()
@@ -266,8 +314,30 @@ function HearBuddy() {
   const stopListening = (force = false) => {
     if (!recognitionRef.current) return
     
+    // Clear any pending interim timeout
+    if (interimTimeoutRef.current) {
+      clearTimeout(interimTimeoutRef.current)
+      interimTimeoutRef.current = null
+    }
+    
+    // Finalize any remaining interim text before stopping
+    const currentInterim = lastInterimTextRef.current
+    if (currentInterim && currentInterim.trim().length > 0) {
+      setTranscript(prev => {
+        const currentTranscript = transcriptRef.current
+        const isNewSentence = !currentTranscript || /[.!?]\s*$/.test(currentTranscript.trim())
+        const punctuated = addPunctuation(currentInterim.trim(), punctuationSettingsRef.current, isNewSentence)
+        
+        const separator = prev && !prev.endsWith(' ') ? ' ' : ''
+        const newTranscript = prev + separator + punctuated + ' '
+        transcriptRef.current = newTranscript
+        return newTranscript
+      })
+    }
+    
     setListening(false)
     setInterimText('')
+    lastInterimTextRef.current = ''
     
     if (force && recognitionRef.current) {
       try {
@@ -301,8 +371,8 @@ function HearBuddy() {
       
       <InstallButton />
       
-      <main className="max-w-5xl mx-auto px-4 pt-6 pb-10 md:px-6 md:pt-10 md:pb-16">
-        <section className="rounded-3xl bg-white shadow-md border border-slate-200 px-4 py-5 md:px-6 md:py-7 space-y-4 relative">
+        <main className="max-w-5xl mx-auto px-4 pt-6 pb-10 md:px-6 md:pt-10 md:pb-16">
+          <section className="relative rounded-3xl bg-white shadow-md border border-slate-200 px-4 py-5 md:px-6 md:py-7 space-y-4">
           {/* Decorative icon */}
           <div className="absolute top-4 right-5 opacity-40 md:opacity-60 pointer-events-none">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -333,28 +403,29 @@ function HearBuddy() {
 
           {/* Button Row */}
           <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3 mt-3">
-            <Button
-              id="startBtn"
-              onClick={startListening}
-              disabled={listening}
-              title="Start listening"
-              aria-label="Start listening"
-              variant="primary"
-              className={`w-full md:w-auto bg-[var(--cp-green)] hover:bg-[var(--cp-green)]/90 text-white ${listening ? "opacity-50 cursor-not-allowed" : ""}`}
-            >
-              {listening ? "Listening..." : "Start Listening"}
-            </Button>
-            <Button
-              id="stopBtn"
-              onClick={() => stopListening(false)}
-              disabled={!listening}
-              title="Stop listening"
-              aria-label="Stop listening"
-              variant="primary"
-              className="w-full md:w-auto !bg-[var(--cp-red)] hover:!bg-[var(--cp-red)]/90 !text-white"
-            >
-              Stop
-            </Button>
+            {listening ? (
+              <Button
+                id="stopBtn"
+                onClick={() => stopListening(false)}
+                title="Stop listening"
+                aria-label="Stop listening"
+                variant="primary"
+                className="w-full md:w-auto !bg-[var(--cp-red)] hover:!bg-[var(--cp-red)]/90 !text-white"
+              >
+                Stop
+              </Button>
+            ) : (
+              <Button
+                id="startBtn"
+                onClick={startListening}
+                title="Start listening"
+                aria-label="Start listening"
+                variant="primary"
+                className="w-full md:w-auto bg-[var(--cp-green)] hover:bg-[var(--cp-green)]/90 text-white"
+              >
+                Start Listening
+              </Button>
+            )}
             <Button
               id="settingsBtn"
               onClick={() => setShowSettings(!showSettings)}
@@ -412,9 +483,9 @@ function HearBuddy() {
           }`}>
             <div className="min-h-[280px] md:min-h-[340px] rounded-2xl bg-white/70 px-4 py-3 md:px-5 md:py-4 flex flex-col">
               <h2 className="sr-only">Live transcript</h2>
-              <div className="h-full max-h-[420px] overflow-y-auto pr-1 text-base md:text-lg leading-relaxed text-slate-800">
+              <div className="h-full max-h-[420px] overflow-y-auto pr-1 text-lg md:text-xl leading-relaxed text-slate-800">
                 {transcript.length === 0 && !interimText ? (
-                  <p className="text-slate-400 text-base md:text-lg italic">
+                  <p className="text-slate-400 text-lg md:text-xl italic">
                     Captions will appear here when someone starts talking.
                   </p>
                 ) : (
@@ -432,6 +503,11 @@ function HearBuddy() {
                 {status}
               </div>
             </div>
+          </div>
+          
+          {/* Fidget spinner in bottom-right of the card */}
+          <div className="hidden sm:block absolute bottom-4 right-4">
+            <CleverFidgetSpinner />
           </div>
         </section>
         
