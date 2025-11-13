@@ -115,6 +115,7 @@ function HearBuddy() {
   const transcriptRef = useRef('')
   const interimTimeoutRef = useRef(null)
   const lastInterimTextRef = useRef('')
+  const lastProcessedFinalTextRef = useRef('')
 
 
   // Speech Recognition initialization
@@ -165,9 +166,13 @@ function HearBuddy() {
     }
 
     recognition.onresult = (event) => {
+      // On iOS Safari, the same results can be processed multiple times
+      // We need to deduplicate by checking what we've already added to the transcript
       let interim = ''
       let finalText = ''
       
+      // Process results starting from resultIndex
+      // On iOS, resultIndex might not work correctly, so we'll deduplicate by content
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const res = event.results[i]
         const txt = res[0].transcript
@@ -178,7 +183,8 @@ function HearBuddy() {
         }
       }
 
-      if (finalText) {
+      // Only process final text if we have new final text
+      if (finalText && finalText.trim()) {
         // Clear any pending interim timeout since we have final text
         if (interimTimeoutRef.current) {
           clearTimeout(interimTimeoutRef.current)
@@ -186,9 +192,33 @@ function HearBuddy() {
         }
         
         setTranscript(prev => {
+          // Check if this text is already in the transcript to prevent duplicates
+          // This handles iOS Safari's duplicate result events
+          const trimmedFinal = finalText.trim()
+          const currentTranscript = prev.trim()
+          
+          // If the transcript already ends with this text, skip it (duplicate)
+          if (currentTranscript && currentTranscript.endsWith(trimmedFinal)) {
+            return prev
+          }
+          
+          // Also check if we just processed this exact text
+          if (trimmedFinal === lastProcessedFinalTextRef.current) {
+            return prev
+          }
+          
           // Check if this is a new sentence (previous text ends with punctuation or is empty)
           const isNewSentence = !prev || /[.!?]\s*$/.test(prev.trim())
           const punctuated = addPunctuation(finalText, punctuationSettingsRef.current, isNewSentence)
+          
+          // Final check: make sure the punctuated text isn't already at the end
+          const trimmedPunctuated = punctuated.trim()
+          if (currentTranscript && currentTranscript.endsWith(trimmedPunctuated)) {
+            return prev
+          }
+          
+          // Update the last processed final text
+          lastProcessedFinalTextRef.current = trimmedFinal
           
           // Add space between sentences if previous text doesn't end with space
           const separator = prev && !prev.endsWith(' ') ? ' ' : ''
@@ -309,6 +339,10 @@ function HearBuddy() {
   const startListening = () => {
     if (!recognitionRef.current) return
     if (listening) return
+    
+    // Reset tracking ref when starting fresh
+    lastProcessedFinalTextRef.current = ''
+    
     setListening(true)
     trackStartListening()
   }
@@ -356,6 +390,7 @@ function HearBuddy() {
     transcriptRef.current = ''
     setInterimText('')
     lastInterimTextRef.current = ''
+    lastProcessedFinalTextRef.current = ''
   }
 
   const displayTranscript = () => {
