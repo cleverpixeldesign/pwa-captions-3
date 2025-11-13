@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Header, Footer, Card, Button } from '../cleverpixel-design-system/src';
+import InstallButton from '../components/InstallButton';
 
 export default function Contact() {
   const [result, setResult] = useState("");
@@ -45,6 +46,8 @@ export default function Contact() {
         ]}
         onContactClick={() => navigate('/contact')}
       />
+      
+      <InstallButton />
       
       <main className="max-w-5xl mx-auto px-4 md:px-6 pt-10 pb-16">
         {isSuccess ? (

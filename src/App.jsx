@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom'
 import { Header, Button, Card, Footer } from './cleverpixel-design-system/src';
 import Contact from './pages/Contact'
+import InstallButton from './components/InstallButton'
 import './App.css'
 
 // Question detection patterns
@@ -102,8 +103,6 @@ function HearBuddy() {
   const [interimText, setInterimText] = useState('')
   const [status, setStatus] = useState('')
   const [listening, setListening] = useState(false)
-  const [installPrompt, setInstallPrompt] = useState(null)
-  const [showInstallTip, setShowInstallTip] = useState(false)
   const [punctuationSettings, setPunctuationSettings] = useState(PUNCTUATION_CONFIG)
   const [showSettings, setShowSettings] = useState(false)
   const navigate = useNavigate()
@@ -113,42 +112,6 @@ function HearBuddy() {
   const punctuationSettingsRef = useRef(punctuationSettings)
   const transcriptRef = useRef('')
 
-  // PWA Install Prompt Handling
-  useEffect(() => {
-    const handleBeforeInstallPrompt = (e) => {
-      e.preventDefault()
-      setInstallPrompt(e)
-      setShowInstallTip(false)
-    }
-
-    const handleAppInstalled = () => {
-      setInstallPrompt(null)
-      setShowInstallTip(false)
-    }
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
-    window.addEventListener('appinstalled', handleAppInstalled)
-
-    // Check if already installed
-    if (!installPrompt) {
-      setShowInstallTip(true)
-    }
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
-      window.removeEventListener('appinstalled', handleAppInstalled)
-    }
-  }, [installPrompt])
-
-  const handleInstall = async () => {
-    if (!installPrompt) return
-    
-    installPrompt.prompt()
-    const { outcome } = await installPrompt.userChoice
-    setInstallPrompt(null)
-    setShowInstallTip(!installPrompt)
-    console.log('Install choice:', outcome)
-  }
 
   // Speech Recognition initialization
   useEffect(() => {
@@ -164,22 +127,22 @@ function HearBuddy() {
     recognition.interimResults = true
     recognition.continuous = true
 
-    recognition.onstart = () => {
-      setStatus('Listening…')
-    }
+    // recognition.onstart = () => {
+    //   setStatus('Listening…')
+    // }
 
-    recognition.onend = () => {
-      if (listeningRef.current && recognitionRef.current) {
-        setStatus('Reconnecting…')
-        try {
-          recognition.start()
-        } catch (e) {
-          // starting while started throws
-        }
-      } else {
-        setStatus('Stopped')
-      }
-    }
+    // recognition.onend = () => {
+    //   if (listeningRef.current && recognitionRef.current) {
+    //     setStatus('Reconnecting…')
+    //     try {
+    //       recognition.start()
+    //     } catch (e) {
+    //       // starting while started throws
+    //     }
+    //   } else {
+    //     setStatus('Stopped')
+    //   }
+    // }
 
     recognition.onerror = (e) => {
       console.error(e)
@@ -336,6 +299,8 @@ function HearBuddy() {
         onContactClick={() => navigate('/contact')}
       />
       
+      <InstallButton />
+      
       <main className="max-w-5xl mx-auto px-4 pt-6 pb-10 md:px-6 md:pt-10 md:pb-16">
         <section className="rounded-3xl bg-white shadow-md border border-slate-200 px-4 py-5 md:px-6 md:py-7 space-y-4 relative">
           {/* Decorative icon */}
@@ -368,17 +333,6 @@ function HearBuddy() {
 
           {/* Button Row */}
           <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3 mt-3">
-            <Button
-              id="installBtn"
-              onClick={handleInstall}
-              disabled={!installPrompt}
-              title="Install app"
-              aria-label="Install app"
-              variant="secondary"
-              className={`w-full md:w-auto ${!installPrompt ? "bg-slate-50 text-slate-400 border border-slate-200 cursor-not-allowed" : ""}`}
-            >
-              Install
-            </Button>
             <Button
               id="startBtn"
               onClick={startListening}
@@ -413,12 +367,6 @@ function HearBuddy() {
             </Button>
           </div>
 
-          {/* Tip Text */}
-          {showInstallTip && (
-            <p className="text-xs md:text-sm text-slate-500" id="installTip">
-              Tip: If the Install button is disabled, use your browser menu to "Add to Home Screen".
-            </p>
-          )}
 
           {/* Settings Panel */}
           {showSettings && (
