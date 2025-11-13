@@ -332,31 +332,42 @@ function HearBuddy() {
       <Header 
         navItems={[
           { href: '/', label: 'Home' },
-          { href: '#work', label: 'Work' },
-          { href: '#about', label: 'About' },
         ]}
         onContactClick={() => navigate('/contact')}
       />
       
-      <main className="max-w-5xl mx-auto px-4 md:px-6 pt-10 pb-16">
-        <section className="rounded-3xl bg-white shadow-md border border-slate-200 px-4 py-5 md:px-6 md:py-7 space-y-4">
+      <main className="max-w-5xl mx-auto px-4 pt-6 pb-10 md:px-6 md:pt-10 md:pb-16">
+        <section className="rounded-3xl bg-white shadow-md border border-slate-200 px-4 py-5 md:px-6 md:py-7 space-y-4 relative">
+          {/* Decorative icon */}
+          <div className="absolute top-4 right-5 opacity-40 md:opacity-60 pointer-events-none">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 3C7.58 3 4 6.13 4 10c0 2.38 1.19 4.47 3 5.74V19c0 .55.45 1 1 1h1.26c.81 1.27 2.19 2.26 3.74 2.26 4.42 0 8-3.13 8-7s-3.58-7-8-7z" fill="currentColor" className="text-slate-300"/>
+              <circle cx="9" cy="10" r="1" fill="currentColor" className="text-slate-400"/>
+              <circle cx="12" cy="10" r="1" fill="currentColor" className="text-slate-400"/>
+              <circle cx="15" cy="10" r="1" fill="currentColor" className="text-slate-400"/>
+            </svg>
+          </div>
+          
           {/* Heading & Subtitle */}
           <div>
             <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900">
               <span className="inline-flex items-center gap-2">
                 <span>Hear Buddy</span>
-                <span className="inline-flex h-6 px-2 rounded-full bg-slate-100 text-[11px] font-medium tracking-wide text-slate-500">
-                  Live captions
-                </span>
               </span>
             </h1>
             <p className="text-sm md:text-base text-slate-600 mt-1 max-w-xl">
               A simple, installable PWA that converts speech to live captions.
             </p>
+            {listening && (
+              <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 border border-emerald-100">
+                <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                Listening for captions
+              </p>
+            )}
           </div>
 
           {/* Button Row */}
-          <div className="flex flex-wrap items-center gap-3 pt-2">
+          <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3 mt-3">
             <Button
               id="installBtn"
               onClick={handleInstall}
@@ -364,7 +375,7 @@ function HearBuddy() {
               title="Install app"
               aria-label="Install app"
               variant="secondary"
-              className={!installPrompt ? "bg-slate-50 text-slate-400 border border-slate-200 cursor-not-allowed" : ""}
+              className={`w-full md:w-auto ${!installPrompt ? "bg-slate-50 text-slate-400 border border-slate-200 cursor-not-allowed" : ""}`}
             >
               Install
             </Button>
@@ -375,9 +386,9 @@ function HearBuddy() {
               title="Start listening"
               aria-label="Start listening"
               variant="primary"
-              className="bg-[var(--cp-green)] hover:bg-[var(--cp-green)]/90 text-white"
+              className={`w-full md:w-auto bg-[var(--cp-green)] hover:bg-[var(--cp-green)]/90 text-white ${listening ? "opacity-50 cursor-not-allowed" : ""}`}
             >
-              Start Listening
+              {listening ? "Listening..." : "Start Listening"}
             </Button>
             <Button
               id="stopBtn"
@@ -386,7 +397,7 @@ function HearBuddy() {
               title="Stop listening"
               aria-label="Stop listening"
               variant="primary"
-              className="!bg-[var(--cp-red)] hover:!bg-[var(--cp-red)]/90 !text-white"
+              className="w-full md:w-auto !bg-[var(--cp-red)] hover:!bg-[var(--cp-red)]/90 !text-white"
             >
               Stop
             </Button>
@@ -396,6 +407,7 @@ function HearBuddy() {
               title="Punctuation settings"
               aria-label="Punctuation settings"
               variant="secondary"
+              className="w-full md:w-auto"
             >
               ⚙️ Settings
             </Button>
@@ -445,17 +457,28 @@ function HearBuddy() {
           )}
 
           {/* Transcript Panel */}
-          <div className="rounded-2xl border border-slate-200 bg-slate-50/80 mt-2">
-            <div className="min-h-[280px] md:min-h-[340px] rounded-2xl bg-white/70 px-4 py-3 md:px-5 md:py-4">
+          <div className={`rounded-2xl border bg-slate-50/80 mt-2 transition-shadow ${
+            listening 
+              ? "border-emerald-200 shadow-[0_0_0_1px_rgba(16,185,129,0.15)]" 
+              : "border-slate-200 shadow-none"
+          }`}>
+            <div className="min-h-[280px] md:min-h-[340px] rounded-2xl bg-white/70 px-4 py-3 md:px-5 md:py-4 flex flex-col">
               <h2 className="sr-only">Live transcript</h2>
-              <div
-                id="transcript"
-                className="text-base md:text-lg leading-relaxed tracking-wide text-left text-slate-800"
-                role="status"
-                aria-live="polite"
-                aria-atomic="false"
-              >
-                {displayTranscript()}
+              <div className="h-full max-h-[420px] overflow-y-auto pr-1 text-base md:text-lg leading-relaxed text-slate-800">
+                {transcript.length === 0 && !interimText ? (
+                  <p className="text-slate-400 text-base md:text-lg italic">
+                    Captions will appear here when someone starts talking.
+                  </p>
+                ) : (
+                  <div
+                    id="transcript"
+                    role="status"
+                    aria-live="polite"
+                    aria-atomic="false"
+                  >
+                    {displayTranscript()}
+                  </div>
+                )}
               </div>
               <div id="status" className="text-slate-500 text-sm md:text-base mt-3 text-left" aria-live="polite">
                 {status}
@@ -463,6 +486,13 @@ function HearBuddy() {
             </div>
           </div>
         </section>
+        
+        {/* Dedication */}
+        <div className="text-center mt-8 mb-4">
+          <p className="text-xs md:text-sm text-slate-400 italic">
+            Hi Lauren! I hope you never miss a joke, a story, or a friend (like Lorelei) asking you to come play. 💚
+          </p>
+        </div>
       </main>
       
       <Footer 
