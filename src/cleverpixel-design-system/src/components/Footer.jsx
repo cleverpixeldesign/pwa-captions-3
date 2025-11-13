@@ -38,6 +38,8 @@ export function Footer({
               <a 
                 key={link.href}
                 href={link.href} 
+                target={link.target}
+                rel={link.rel}
                 className="hover:text-[var(--cp-blue)]"
               >
                 {link.label}

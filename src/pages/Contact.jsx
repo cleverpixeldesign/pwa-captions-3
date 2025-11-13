@@ -188,6 +188,7 @@ export default function Contact() {
         links={[
           { href: '/', label: 'Home' },
           { href: '/contact', label: 'Contact' },
+          { href: 'https://buymeacoffee.com/michellereeves', label: '☕ Buy Me a Coffee', target: '_blank', rel: 'noopener noreferrer' },
         ]}
         copyrightText="Crafted with playful precision"
       />
