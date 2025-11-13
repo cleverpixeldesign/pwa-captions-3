@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['assets/favicon-196x196.png', 'assets/favicon-128x128.png'],
+      includeAssets: ['assets/favicon.png', 'assets/app-icons/192.png', 'assets/app-icons/512.png'],
       manifest: {
         name: 'Hear Buddy',
         short_name: 'Buddy',
@@ -18,32 +18,62 @@ export default defineConfig({
         display: 'standalone',
         icons: [
           {
-            src: 'assets/favicon-196x196.png',
-            sizes: '196x196',
+            src: 'assets/app-icons/48.png',
+            sizes: '48x48',
             type: 'image/png',
             purpose: 'any maskable'
           },
           {
-            src: 'assets/favicon-128x128.png',
-            sizes: '128x128',
+            src: 'assets/app-icons/72.png',
+            sizes: '72x72',
             type: 'image/png',
             purpose: 'any maskable'
           },
           {
-            src: 'assets/favicon-96x96.png',
+            src: 'assets/app-icons/96.png',
             sizes: '96x96',
             type: 'image/png',
             purpose: 'any maskable'
           },
           {
-            src: 'assets/favicon-32x32.png',
-            sizes: '32x32',
+            src: 'assets/app-icons/128.png',
+            sizes: '128x128',
             type: 'image/png',
             purpose: 'any maskable'
           },
           {
-            src: 'assets/favicon-16x16.png',
-            sizes: '16x16',
+            src: 'assets/app-icons/144.png',
+            sizes: '144x144',
+            type: 'image/png',
+            purpose: 'any maskable'
+          },
+          {
+            src: 'assets/app-icons/152.png',
+            sizes: '152x152',
+            type: 'image/png',
+            purpose: 'any maskable'
+          },
+          {
+            src: 'assets/app-icons/180.png',
+            sizes: '180x180',
+            type: 'image/png',
+            purpose: 'any maskable'
+          },
+          {
+            src: 'assets/app-icons/192.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'any maskable'
+          },
+          {
+            src: 'assets/app-icons/384.png',
+            sizes: '384x384',
+            type: 'image/png',
+            purpose: 'any maskable'
+          },
+          {
+            src: 'assets/app-icons/512.png',
+            sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable'
           }
