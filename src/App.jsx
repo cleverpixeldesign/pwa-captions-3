@@ -4,6 +4,7 @@ import { Header, Button, Card, Footer } from './cleverpixel-design-system/src';
 import Contact from './pages/Contact'
 import InstallButton from './components/InstallButton'
 import { CleverFidgetSpinner } from './components/CleverFidgetSpinner'
+import { HearBuddyMascot } from './components/HearBuddyMascot'
 import { trackSettingsToggle, trackStartListening, trackStopListening } from './utils/analytics'
 import './App.css'
 
@@ -460,14 +461,9 @@ function HearBuddy() {
           {/* Heading & Subtitle */}
           <header>
             <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900">
-              <span className="inline-flex items-center gap-3">
+              <span className="inline-flex items-end gap-3">
+                <HearBuddyMascot className="w-16 h-16 md:w-16 md:h-16" />
                 <span>Hear Buddy</span>
-                <img 
-                  src="/assets/HearBuddy.svg" 
-                  alt="Hear Buddy mascot" 
-                  className="w-20 h-20 md:w-20 md:h-20"
-                  title="Hear Buddy"
-                />
               </span>
             </h1>
             <p className="text-sm md:text-base text-slate-600 mt-1 max-w-xl">
