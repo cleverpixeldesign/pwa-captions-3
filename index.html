@@ -79,6 +79,20 @@
       ]
     }
     </script>
+    
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      
+      // Configure cookie domain for subdomain tracking
+      gtag('config', 'G-X0BXNB5CWM', {
+        'cookie_domain': 'auto', // Automatically sets to current domain
+        'cookie_flags': 'SameSite=None;Secure'
+      });
+    </script>
   </head>
   <body>
     <div id="root"></div>

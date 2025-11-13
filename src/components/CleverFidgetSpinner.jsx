@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { trackFidgetSpinner } from "../utils/analytics";
 
 export const CleverFidgetSpinner = () => {
   const [rotation, setRotation] = useState(0);
@@ -18,6 +19,7 @@ export const CleverFidgetSpinner = () => {
     if (reduceMotion) return;
     const turns = Math.floor(Math.random() * 3) + 2; // 2–4 turns for more satisfying spin
     setRotation((prev) => prev + 360 * turns);
+    trackFidgetSpinner();
   };
 
   const handleKeyDown = (e) => {

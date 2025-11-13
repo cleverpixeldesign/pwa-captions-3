@@ -4,6 +4,7 @@ import { Header, Button, Card, Footer } from './cleverpixel-design-system/src';
 import Contact from './pages/Contact'
 import InstallButton from './components/InstallButton'
 import { CleverFidgetSpinner } from './components/CleverFidgetSpinner'
+import { trackSettingsToggle, trackStartListening, trackStopListening } from './utils/analytics'
 import './App.css'
 
 // Question detection patterns
@@ -309,6 +310,7 @@ function HearBuddy() {
     if (!recognitionRef.current) return
     if (listening) return
     setListening(true)
+    trackStartListening()
   }
 
   const stopListening = (force = false) => {
@@ -338,6 +340,7 @@ function HearBuddy() {
     setListening(false)
     setInterimText('')
     lastInterimTextRef.current = ''
+    trackStopListening()
     
     if (force && recognitionRef.current) {
       try {
@@ -390,7 +393,11 @@ function HearBuddy() {
           {/* Settings Button - Top Right */}
           <button
             id="settingsBtn"
-            onClick={() => setShowSettings(!showSettings)}
+            onClick={() => {
+              const newState = !showSettings;
+              setShowSettings(newState);
+              trackSettingsToggle(newState);
+            }}
             title="Punctuation settings"
             aria-label="Punctuation settings"
             className="absolute top-4 right-4 md:top-5 md:right-6 p-2 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cp-blue)] focus-visible:ring-offset-2"
@@ -548,8 +555,8 @@ function HearBuddy() {
       
       <Footer 
         links={[
-          { href: '#work', label: 'Work' },
-          { href: '#about', label: 'About' },
+        //   { href: '#work', label: 'Work' },
+        //   { href: '#about', label: 'About' },
         ]}
         copyrightText="Crafted with playful precision"
       />
