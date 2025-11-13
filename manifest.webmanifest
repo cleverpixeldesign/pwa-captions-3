@@ -1,6 +1,6 @@
 {
-    "name": "Hearing Helper",
-    "short_name": "Helper",
+    "name": "Hear Buddy",
+    "short_name": "Buddy",
     "start_url": ".",
     "scope": "/",
     "display": "standalone",

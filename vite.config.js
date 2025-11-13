@@ -10,8 +10,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['assets/favicon-196x196.png', 'assets/favicon-128x128.png'],
       manifest: {
-        name: 'Hearing Helper',
-        short_name: 'Helper',
+        name: 'Hear Buddy',
+        short_name: 'Buddy',
         description: 'Speech-to-text captions PWA for people who are hard of hearing.',
         theme_color: '#111827',
         background_color: '#0b0f1a',

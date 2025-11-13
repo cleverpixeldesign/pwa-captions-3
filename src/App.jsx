@@ -97,7 +97,7 @@ function addPunctuation(text, config, isNewSentence = false) {
   return trimmed
 }
 
-function HearingHelper() {
+function HearBuddy() {
   const [transcript, setTranscript] = useState('')
   const [interimText, setInterimText] = useState('')
   const [status, setStatus] = useState('')
@@ -344,7 +344,7 @@ function HearingHelper() {
           <div>
             <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900">
               <span className="inline-flex items-center gap-2">
-                <span>Hearing Helper</span>
+                <span>Hear Buddy</span>
                 <span className="inline-flex h-6 px-2 rounded-full bg-slate-100 text-[11px] font-medium tracking-wide text-slate-500">
                   Live captions
                 </span>
@@ -480,7 +480,7 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<HearingHelper />} />
+        <Route path="/" element={<HearBuddy />} />
         <Route path="/contact" element={<Contact />} />
       </Routes>
     </BrowserRouter>
