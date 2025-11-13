@@ -31,7 +31,7 @@ export function Header({
     <header className="sticky top-0 z-50 bg-[var(--cp-cream)]/95 backdrop-blur border-b border-black/5">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          <a href="#" className="flex items-center gap-3">
+          <a href="https://www.cleverpixel.com" className="flex items-center gap-3" target="_blank" rel="noopener noreferrer">
             <LogoWithText logoSrc={logoSrc} />
           </a>
           
