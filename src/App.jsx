@@ -409,7 +409,7 @@ function HearBuddy() {
           </button>
           
           {/* Heading & Subtitle */}
-          <div>
+          <header>
             <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900">
               <span className="inline-flex items-center gap-2">
                 <span>Hear Buddy</span>
@@ -424,7 +424,7 @@ function HearBuddy() {
                 Listening for captions
               </p>
             )}
-          </div>
+          </header>
 
           {/* Button Row */}
           <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3 mt-3">
@@ -470,14 +470,15 @@ function HearBuddy() {
           {showSettings && (
             <Card className="absolute top-12 right-4 md:top-14 md:right-6 z-10 w-56 border border-slate-200 shadow-lg">
               <h3 className="m-0 mb-2 text-sm font-bold text-slate-900">Punctuation Settings</h3>
-              <label className="flex items-center gap-2 py-1.5 cursor-pointer text-slate-700">
+              {/* <label className="flex items-center gap-2 py-1.5 cursor-pointer text-slate-700">
                 <input
                   type="checkbox"
                   checked={punctuationSettings.autoPunctuation}
                   onChange={(e) => setPunctuationSettings(prev => ({ ...prev, autoPunctuation: e.target.checked }))}
                   className="w-4 h-4 cursor-pointer accent-[var(--cp-blue)] disabled:opacity-50 disabled:cursor-not-allowed"
                 />
-              </label>
+                <span className="select-none text-sm">Auto punctuation</span>
+              </label> */}
               <label className="flex items-center gap-2 py-1.5 cursor-pointer text-slate-700">
                 <input
                   type="checkbox"
@@ -502,7 +503,7 @@ function HearBuddy() {
           )}
 
           {/* Transcript Panel */}
-          <div className={`rounded-2xl border bg-slate-50/80 mt-2 transition-shadow ${
+          <article className={`rounded-2xl border bg-slate-50/80 mt-2 transition-shadow ${
             listening 
               ? "border-emerald-200 shadow-[0_0_0_1px_rgba(16,185,129,0.15)]" 
               : "border-slate-200 shadow-none"
@@ -529,7 +530,7 @@ function HearBuddy() {
                 {status}
               </div>
             </div>
-          </div>
+          </article>
           
           {/* Fidget spinner in bottom-right of the card */}
           <div className="hidden sm:block absolute bottom-4 right-4">

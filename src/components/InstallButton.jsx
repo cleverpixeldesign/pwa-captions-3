@@ -4,8 +4,20 @@ export default function InstallButton() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [canInstall, setCanInstall] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
+  const [isAndroid, setIsAndroid] = useState(false);
 
   useEffect(() => {
+    // Detect if device is Android
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    const android = /android/i.test(userAgent);
+    setIsAndroid(android);
+
+    // Only show on Android devices
+    if (!android) {
+      setCanInstall(false);
+      return;
+    }
+
     // Check if app is already installed (standalone mode)
     const isStandalone =
       window.matchMedia('(display-mode: standalone)').matches ||
@@ -20,17 +32,23 @@ export default function InstallButton() {
     const dismissed = localStorage.getItem('install-banner-dismissed');
     if (dismissed === 'true') {
       setIsDismissed(true);
-      setCanInstall(false);
-      return;
     }
 
     const handler = (event) => {
       event.preventDefault();
       setDeferredPrompt(event);
       setCanInstall(true);
+      // If we get the prompt, show the banner even if it was dismissed before
+      setIsDismissed(false);
     };
 
     window.addEventListener('beforeinstallprompt', handler);
+
+    // Show banner by default if not dismissed (even without prompt)
+    // This allows showing manual install instructions
+    if (dismissed !== 'true') {
+      setCanInstall(true);
+    }
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handler);
@@ -62,7 +80,14 @@ export default function InstallButton() {
     localStorage.setItem('install-banner-dismissed', 'true');
   };
 
-  if (!canInstall || isDismissed) return null;
+  // Only show on Android devices
+  if (!isAndroid) return null;
+  
+  // Don't show if explicitly dismissed AND we don't have a prompt
+  if (isDismissed && !deferredPrompt) return null;
+  
+  // Don't show if we can't install and don't have a prompt
+  if (!canInstall && !deferredPrompt) return null;
 
   return (
     <div className="bg-slate-50 border-b border-slate-200 px-4 py-2.5">
@@ -74,12 +99,16 @@ export default function InstallButton() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={handleInstallClick}
-            className="px-3 py-1.5 rounded-md bg-white border border-slate-300 text-slate-700 text-xs font-medium hover:bg-slate-50 hover:border-slate-400 transition whitespace-nowrap"
-          >
-            Install
-          </button>
+          {deferredPrompt ? (
+            <button
+              onClick={handleInstallClick}
+              className="px-3 py-1.5 rounded-md bg-white border border-slate-300 text-slate-700 text-xs font-medium hover:bg-slate-50 hover:border-slate-400 transition whitespace-nowrap"
+            >
+              Install
+            </button>
+          ) : (
+            <span className="text-xs text-slate-500">Use browser menu to install</span>
+          )}
           <button
             onClick={handleDismiss}
             className="p-1 rounded-md hover:bg-slate-200/50 transition text-slate-400 hover:text-slate-600"

@@ -49,7 +49,7 @@ export default function Contact() {
       
       <InstallButton />
       
-      <main className="max-w-5xl mx-auto px-4 md:px-6 pt-10 pb-16">
+      <main className="max-w-3xl mx-auto px-4 md:px-6 pt-10 pb-16">
         {isSuccess ? (
           <section className="rounded-3xl bg-white shadow-md border border-slate-200 px-4 py-5 md:px-6 md:py-7">
             <div className="text-center py-8 md:py-12">
@@ -104,7 +104,7 @@ export default function Contact() {
                 Get in Touch
               </h1>
               <p className="text-sm md:text-base text-slate-600 max-w-xl">
-                Have a question or want to work together? Send us a message and we'll get back to you as soon as possible.
+                Have a question or feedback? Send a message to connect!
               </p>
             </div>
 
