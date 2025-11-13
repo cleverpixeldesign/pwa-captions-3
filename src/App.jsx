@@ -462,7 +462,7 @@ function HearBuddy() {
           <header>
             <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900">
               <span className="inline-flex items-end gap-3">
-                <HearBuddyMascot className="w-16 h-16 md:w-16 md:h-16" />
+                <HearBuddyMascot className="w-16 h-16 md:w-16 md:h-16" listening={listening} />
                 <span>Hear Buddy</span>
               </span>
             </h1>
