@@ -379,6 +379,13 @@ function HearBuddy() {
       <InstallButton />
       
         <main className="max-w-5xl mx-auto px-4 pt-6 pb-10 md:px-6 md:pt-10 md:pb-16">
+          {/* Dedication */}
+          <div className="text-center mb-6">
+            <p className="text-xs md:text-sm text-slate-400 italic">
+              Hi Lauren! I hope this helps you never miss a joke, a story, or a friend (like Lorelei) asking you to come play. 💚
+            </p>
+          </div>
+          
           <section className="relative rounded-3xl bg-white shadow-md border border-slate-200 px-4 py-5 md:px-6 md:py-7 space-y-4">
           {/* Settings Button - Top Right */}
           <button
@@ -537,13 +544,6 @@ function HearBuddy() {
             <CleverFidgetSpinner />
           </div>
         </section>
-        
-        {/* Dedication */}
-        <div className="text-center mt-8 mb-4">
-          <p className="text-xs md:text-sm text-slate-400 italic">
-            Hi Lauren! I hope you never miss a joke, a story, or a friend (like Lorelei) asking you to come play. 💚
-          </p>
-        </div>
       </main>
       
       <Footer 
