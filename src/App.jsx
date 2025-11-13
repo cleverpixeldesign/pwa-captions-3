@@ -460,21 +460,18 @@ function HearBuddy() {
           
           {/* Heading & Subtitle */}
           <header>
-            <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900">
-              <span className="inline-flex items-end gap-3">
-                <HearBuddyMascot className="w-16 h-16 md:w-16 md:h-16" listening={listening} />
-                <span>Hear Buddy</span>
-              </span>
-            </h1>
-            <p className="text-sm md:text-base text-slate-600 mt-1 max-w-xl">
-              A simple, installable PWA that converts speech to live captions.
-            </p>
-            {listening && (
-              <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 border border-emerald-100">
-                <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                Listening for captions
-              </p>
-            )}
+            <div className="relative ">
+              <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900">
+                <span className="inline-flex items-end gap-3">
+                  <HearBuddyMascot className="w-16 h-16 md:w-16 md:h-16" listening={listening} />
+                  <span>Hear Buddy</span>
+                </span>
+              </h1>
+               <span className="text-sm md:text-base text-slate-600 mt-1 max-w-xl">
+              A simple, installable web app that converts speech to live captions.
+            </span>
+            </div>
+           
           </header>
 
           {/* Button Row */}
@@ -514,6 +511,13 @@ function HearBuddy() {
                 Clear
               </Button>
             )}
+              {/* Listening pill - positioned above title, aligned with dog's head */}
+              {listening && (
+                <div className=" inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 border border-emerald-100 z-10 whitespace-nowrap">
+                  <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                  Listening for captions
+                </div>
+              )}
           </div>
 
 
