@@ -348,6 +348,13 @@ function HearBuddy() {
     }
   }
 
+  const clearTranscript = () => {
+    setTranscript('')
+    transcriptRef.current = ''
+    setInterimText('')
+    lastInterimTextRef.current = ''
+  }
+
   const displayTranscript = () => {
     if (interimText) {
       return (
@@ -373,15 +380,33 @@ function HearBuddy() {
       
         <main className="max-w-5xl mx-auto px-4 pt-6 pb-10 md:px-6 md:pt-10 md:pb-16">
           <section className="relative rounded-3xl bg-white shadow-md border border-slate-200 px-4 py-5 md:px-6 md:py-7 space-y-4">
-          {/* Decorative icon */}
-          <div className="absolute top-4 right-5 opacity-40 md:opacity-60 pointer-events-none">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 3C7.58 3 4 6.13 4 10c0 2.38 1.19 4.47 3 5.74V19c0 .55.45 1 1 1h1.26c.81 1.27 2.19 2.26 3.74 2.26 4.42 0 8-3.13 8-7s-3.58-7-8-7z" fill="currentColor" className="text-slate-300"/>
-              <circle cx="9" cy="10" r="1" fill="currentColor" className="text-slate-400"/>
-              <circle cx="12" cy="10" r="1" fill="currentColor" className="text-slate-400"/>
-              <circle cx="15" cy="10" r="1" fill="currentColor" className="text-slate-400"/>
+          {/* Settings Button - Top Right */}
+          <button
+            id="settingsBtn"
+            onClick={() => setShowSettings(!showSettings)}
+            title="Punctuation settings"
+            aria-label="Punctuation settings"
+            className="absolute top-4 right-4 md:top-5 md:right-6 p-2 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cp-blue)] focus-visible:ring-offset-2"
+          >
+            <svg 
+              className="w-5 h-5" 
+              fill="none" 
+              stroke="currentColor" 
+              strokeWidth="2" 
+              viewBox="0 0 24 24"
+            >
+              <path 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" 
+              />
+              <path 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" 
+              />
             </svg>
-          </div>
+          </button>
           
           {/* Heading & Subtitle */}
           <div>
@@ -426,51 +451,52 @@ function HearBuddy() {
                 Start Listening
               </Button>
             )}
-            <Button
-              id="settingsBtn"
-              onClick={() => setShowSettings(!showSettings)}
-              title="Punctuation settings"
-              aria-label="Punctuation settings"
-              variant="secondary"
-              className="w-full md:w-auto"
-            >
-              ⚙️ Settings
-            </Button>
+            {!listening && transcript.trim().length > 0 && (
+              <Button
+                id="clearBtn"
+                onClick={clearTranscript}
+                title="Clear captions"
+                aria-label="Clear captions"
+                variant="secondary"
+                className="w-full md:w-auto"
+              >
+                Clear
+              </Button>
+            )}
           </div>
 
 
           {/* Settings Panel */}
           {showSettings && (
-            <Card className="border border-slate-200">
-              <h3 className="m-0 mb-4 text-lg font-bold text-slate-900">Punctuation Settings</h3>
-              <label className="flex items-center gap-2.5 py-2 cursor-pointer text-slate-700">
+            <Card className="absolute top-12 right-4 md:top-14 md:right-6 z-10 w-56 border border-slate-200 shadow-lg">
+              <h3 className="m-0 mb-2 text-sm font-bold text-slate-900">Punctuation Settings</h3>
+              <label className="flex items-center gap-2 py-1.5 cursor-pointer text-slate-700">
                 <input
                   type="checkbox"
                   checked={punctuationSettings.autoPunctuation}
                   onChange={(e) => setPunctuationSettings(prev => ({ ...prev, autoPunctuation: e.target.checked }))}
-                  className="w-[18px] h-[18px] cursor-pointer accent-[var(--cp-blue)] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-4 h-4 cursor-pointer accent-[var(--cp-blue)] disabled:opacity-50 disabled:cursor-not-allowed"
                 />
-                <span className="select-none">Auto punctuation</span>
               </label>
-              <label className="flex items-center gap-2.5 py-2 cursor-pointer text-slate-700">
+              <label className="flex items-center gap-2 py-1.5 cursor-pointer text-slate-700">
                 <input
                   type="checkbox"
                   checked={punctuationSettings.detectQuestions}
                   onChange={(e) => setPunctuationSettings(prev => ({ ...prev, detectQuestions: e.target.checked }))}
                   disabled={!punctuationSettings.autoPunctuation}
-                  className="w-[18px] h-[18px] cursor-pointer accent-[var(--cp-blue)] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-4 h-4 cursor-pointer accent-[var(--cp-blue)] disabled:opacity-50 disabled:cursor-not-allowed"
                 />
-                <span className="select-none">Detect questions</span>
+                <span className="select-none text-sm">Detect questions</span>
               </label>
-              <label className="flex items-center gap-2.5 py-2 cursor-pointer text-slate-700">
+              <label className="flex items-center gap-2 py-1.5 cursor-pointer text-slate-700">
                 <input
                   type="checkbox"
                   checked={punctuationSettings.addPeriods}
                   onChange={(e) => setPunctuationSettings(prev => ({ ...prev, addPeriods: e.target.checked }))}
                   disabled={!punctuationSettings.autoPunctuation}
-                  className="w-[18px] h-[18px] cursor-pointer accent-[var(--cp-blue)] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-4 h-4 cursor-pointer accent-[var(--cp-blue)] disabled:opacity-50 disabled:cursor-not-allowed"
                 />
-                <span className="select-none">Add periods to statements</span>
+                <span className="select-none text-sm">Add periods to statements</span>
               </label>
             </Card>
           )}

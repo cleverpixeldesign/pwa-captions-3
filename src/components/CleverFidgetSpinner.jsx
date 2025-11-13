@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 export const CleverFidgetSpinner = () => {
   const [rotation, setRotation] = useState(0);
   const [reduceMotion, setReduceMotion] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -15,7 +16,7 @@ export const CleverFidgetSpinner = () => {
 
   const spin = () => {
     if (reduceMotion) return;
-    const turns = Math.floor(Math.random() * 3) + 1; // 1–3 turns
+    const turns = Math.floor(Math.random() * 3) + 2; // 2–4 turns for more satisfying spin
     setRotation((prev) => prev + 360 * turns);
   };
 
@@ -33,27 +34,31 @@ export const CleverFidgetSpinner = () => {
       aria-label="Clever Pixel fidget spinner. Press to spin."
       onClick={spin}
       onKeyDown={handleKeyDown}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       className="
         inline-flex items-center justify-center
-        rounded-full bg-white shadow-md border border-slate-200
-        p-1 cursor-pointer select-none
-        transition-shadow duration-300 ease-out
-        hover:shadow-lg
-        focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400
+        rounded-lg bg-white shadow-md border border-slate-200
+        p-2 cursor-pointer select-none
+        transition-all duration-300 ease-out
+        hover:shadow-xl hover:scale-110
+        active:scale-95
+        focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cp-blue)] focus-visible:ring-offset-2
       "
     >
       <div
         className={`
-          grid grid-cols-2 grid-rows-2 gap-[2px]
+          grid grid-cols-2 grid-rows-2 gap-[3px]
           rounded-xl overflow-hidden
-          transition-transform duration-500 ease-out
+          transition-transform duration-700 ease-out
+          ${isHovered ? 'scale-105' : ''}
         `}
         style={{ transform: reduceMotion ? "none" : `rotate(${rotation}deg)` }}
       >
-        <div className="w-6 h-6 md:w-7 md:h-7 bg-emerald-400" />
-        <div className="w-6 h-6 md:w-7 md:h-7 bg-rose-500" />
-        <div className="w-6 h-6 md:w-7 md:h-7 bg-amber-400" />
-        <div className="w-6 h-6 md:w-7 md:h-7 bg-blue-600" />
+        <div className="w-7 h-7 md:w-8 md:h-8 bg-[var(--cp-green)] transition-all duration-200 hover:brightness-110" />
+        <div className="w-7 h-7 md:w-8 md:h-8 bg-[var(--cp-red)] transition-all duration-200 hover:brightness-110" />
+        <div className="w-7 h-7 md:w-8 md:h-8 bg-[var(--cp-yellow)] transition-all duration-200 hover:brightness-110" />
+        <div className="w-7 h-7 md:w-8 md:h-8 bg-[var(--cp-blue)] transition-all duration-200 hover:brightness-110" />
       </div>
     </div>
   );
