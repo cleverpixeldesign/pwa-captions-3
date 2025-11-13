@@ -381,7 +381,7 @@ function HearBuddy() {
         <main className="max-w-5xl mx-auto px-4 pt-6 pb-10 md:px-6 md:pt-10 md:pb-16">
           {/* Dedication */}
           <div className="text-center mb-6">
-            <p className="text-xs md:text-sm text-slate-400 italic">
+            <p className="text-lg md:text-base text-slate-400 italic">
               Hi Lauren! I hope this helps you never miss a joke, a story, or a friend (like Lorelei) asking you to come play. 💚
             </p>
           </div>
