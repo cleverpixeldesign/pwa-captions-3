@@ -40,6 +40,14 @@ export default function Contact() {
 
   return (
     <div className="w-screen min-h-screen">
+      {/* Skip to main content link for screen readers */}
+      <a 
+        href="#main-content" 
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-[var(--cp-blue)] focus:text-white focus:rounded-md focus:font-semibold"
+      >
+        Skip to main content
+      </a>
+      
       <Header 
         navItems={[
           { href: '/', label: 'Home' },
@@ -49,7 +57,7 @@ export default function Contact() {
       
       <InstallButton />
       
-      <main className="max-w-3xl mx-auto px-4 md:px-6 pt-10 pb-16">
+      <main id="main-content" className="max-w-3xl mx-auto px-4 md:px-6 pt-10 pb-16">
         {isSuccess ? (
           <section className="rounded-3xl bg-white shadow-md border border-slate-200 px-4 py-5 md:px-6 md:py-7">
             <div className="text-center py-8 md:py-12">
@@ -108,7 +116,7 @@ export default function Contact() {
               </p>
             </div>
 
-            <form onSubmit={onSubmit} className="space-y-5">
+            <form onSubmit={onSubmit} className="space-y-5" noValidate aria-label="Contact form">
               <div>
                 <label htmlFor="name" className="block text-sm font-medium text-slate-700 mb-2">
                   Name
@@ -159,7 +167,8 @@ export default function Contact() {
                   type="submit"
                   variant="primary"
                   disabled={isSubmitting}
-                  className="bg-[var(--cp-ink)] hover:opacity-90 text-white disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
+                  aria-label={isSubmitting ? "Submitting form" : "Submit contact form"}
+                  className="bg-[var(--cp-ink)] hover:opacity-90 text-white disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto min-h-[44px]"
                 >
                   {isSubmitting ? (
                     <span className="flex items-center gap-2">
@@ -174,7 +183,11 @@ export default function Contact() {
                   )}
                 </Button>
                 {result && !isSubmitting && result !== "Form Submitted Successfully" && (
-                  <span className="text-sm font-medium text-[var(--cp-red)]">
+                  <span 
+                    className="text-sm font-medium text-[var(--cp-red)]"
+                    role="alert"
+                    aria-live="assertive"
+                  >
                     {result}
                   </span>
                 )}

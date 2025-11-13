@@ -13,6 +13,12 @@ const QUESTION_WORDS = /\b(what|where|when|who|why|how|which|whose|whom)\b/i
 const QUESTION_STARTERS = /\b(is|are|was|were|do|does|did|can|could|would|should|will|shall|may|might|have|has|had)\b/i
 const QUESTION_ENDINGS = /\b(right|correct|okay|ok|sure|huh|eh)\s*$/i
 
+// Constants
+const INTERIM_TIMEOUT_MS = 600; // Time to wait before finalizing interim text (ms)
+const SCROLL_THRESHOLD_PX = 100; // Distance from bottom to trigger auto-scroll (px)
+const MIN_TOUCH_TARGET_PX = 44; // WCAG minimum touch target size (px)
+const MAX_PROCESSED_TEXT_ENTRIES = 1000; // Maximum entries in processed text Set to prevent memory leaks
+
 // Punctuation configuration
 const PUNCTUATION_CONFIG = {
   autoPunctuation: true,
@@ -117,6 +123,8 @@ function HearBuddy() {
   const interimTimeoutRef = useRef(null)
   const lastInterimTextRef = useRef('')
   const lastProcessedFinalTextRef = useRef('')
+  const transcriptContainerRef = useRef(null)
+  const processedTextSetRef = useRef(new Set()) // Track all processed text to prevent duplicates
 
 
   // Speech Recognition initialization
@@ -151,17 +159,25 @@ function HearBuddy() {
     // }
 
     recognition.onerror = (e) => {
-      console.error(e)
-      setStatus('Mic error: ' + (e.error || 'unknown'))
-      if (e.error === 'not-allowed') {
-        setStatus('Microphone access denied. Please allow mic permissions in your browser settings.')
+      const error = e.error || 'unknown'
+      console.error('Speech recognition error:', e)
+      
+      const errorMessage = error === 'not-allowed'
+        ? 'Microphone access denied. Please allow mic permissions in your browser settings.'
+        : `Mic error: ${error}`
+      
+      setStatus(errorMessage)
+      
+      if (error === 'not-allowed') {
         listeningRef.current = false
         setListening(false)
         try {
           recognition.stop()
           recognition.abort()
         } catch (err) {
-          // ignore
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Error stopping recognition:', err)
+          }
         }
       }
     }
@@ -169,6 +185,11 @@ function HearBuddy() {
     recognition.onresult = (event) => {
       // On iOS Safari, the same results can be processed multiple times
       // We need to deduplicate by checking what we've already added to the transcript
+      
+      // Guard against empty or invalid results
+      if (!event.results || event.results.length === 0) return
+      if (event.resultIndex >= event.results.length) return
+      
       let interim = ''
       let finalText = ''
       
@@ -176,6 +197,7 @@ function HearBuddy() {
       // On iOS, resultIndex might not work correctly, so we'll deduplicate by content
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const res = event.results[i]
+        if (!res || !res[0]) continue
         const txt = res[0].transcript
         if (res.isFinal) {
           finalText += txt
@@ -192,19 +214,63 @@ function HearBuddy() {
           interimTimeoutRef.current = null
         }
         
+        const trimmedFinal = finalText.trim()
+        const currentTranscript = transcriptRef.current.trim() // Use ref for immediate check
+        
+        // Create unique keys for both raw and potential punctuated versions
+        const rawTextKey = trimmedFinal.toLowerCase()
+        const normalizedKey = trimmedFinal.toLowerCase().replace(/[.!?]/g, '') // Remove punctuation for comparison
+        
+        // Check if we've already processed this exact text (using ref, not state)
+        if (processedTextSetRef.current.has(rawTextKey) || processedTextSetRef.current.has(normalizedKey)) {
+          setInterimText('')
+          lastInterimTextRef.current = ''
+          return
+        }
+        
+        // If the transcript already ends with this text, skip it (duplicate)
+        // Check both with and without trailing spaces
+        const endsWithText = currentTranscript && (
+          currentTranscript.endsWith(trimmedFinal) ||
+          currentTranscript.endsWith(trimmedFinal + ' ') ||
+          currentTranscript.trimEnd().endsWith(trimmedFinal)
+        )
+        
+        if (endsWithText) {
+          processedTextSetRef.current.add(rawTextKey)
+          processedTextSetRef.current.add(normalizedKey)
+          setInterimText('')
+          lastInterimTextRef.current = ''
+          return
+        }
+        
+        // Also check if we just processed this exact text
+        if (trimmedFinal === lastProcessedFinalTextRef.current) {
+          setInterimText('')
+          lastInterimTextRef.current = ''
+          return
+        }
+        
+        // Mark as processed BEFORE processing to prevent race conditions
+        processedTextSetRef.current.add(rawTextKey)
+        processedTextSetRef.current.add(normalizedKey)
+        
+        // Prevent memory leak by limiting Set size
+        if (processedTextSetRef.current.size > MAX_PROCESSED_TEXT_ENTRIES) {
+          const entries = Array.from(processedTextSetRef.current)
+          processedTextSetRef.current = new Set(entries.slice(-MAX_PROCESSED_TEXT_ENTRIES))
+        }
+        
+        lastProcessedFinalTextRef.current = trimmedFinal
+        
         setTranscript(prev => {
-          // Check if this text is already in the transcript to prevent duplicates
-          // This handles iOS Safari's duplicate result events
-          const trimmedFinal = finalText.trim()
-          const currentTranscript = prev.trim()
-          
-          // If the transcript already ends with this text, skip it (duplicate)
-          if (currentTranscript && currentTranscript.endsWith(trimmedFinal)) {
-            return prev
-          }
-          
-          // Also check if we just processed this exact text
-          if (trimmedFinal === lastProcessedFinalTextRef.current) {
+          // Double-check using current state (defensive check)
+          const stateTranscript = prev.trim()
+          if (stateTranscript && (
+            stateTranscript.endsWith(trimmedFinal) ||
+            stateTranscript.endsWith(trimmedFinal + ' ') ||
+            stateTranscript.trimEnd().endsWith(trimmedFinal)
+          )) {
             return prev
           }
           
@@ -214,12 +280,13 @@ function HearBuddy() {
           
           // Final check: make sure the punctuated text isn't already at the end
           const trimmedPunctuated = punctuated.trim()
-          if (currentTranscript && currentTranscript.endsWith(trimmedPunctuated)) {
+          if (stateTranscript && (
+            stateTranscript.endsWith(trimmedPunctuated) ||
+            stateTranscript.endsWith(trimmedPunctuated + ' ') ||
+            stateTranscript.trimEnd().endsWith(trimmedPunctuated)
+          )) {
             return prev
           }
-          
-          // Update the last processed final text
-          lastProcessedFinalTextRef.current = trimmedFinal
           
           // Add space between sentences if previous text doesn't end with space
           const separator = prev && !prev.endsWith(' ') ? ' ' : ''
@@ -254,11 +321,70 @@ function HearBuddy() {
         interimTimeoutRef.current = setTimeout(() => {
           const currentInterim = lastInterimTextRef.current
           if (currentInterim && currentInterim.trim().length > 0) {
+            const trimmedInterim = currentInterim.trim()
+            const rawTextKey = trimmedInterim.toLowerCase()
+            const normalizedKey = trimmedInterim.toLowerCase().replace(/[.!?]/g, '')
+            
+            // Check if this text has already been processed (prevent duplicates)
+            if (processedTextSetRef.current.has(rawTextKey) || processedTextSetRef.current.has(normalizedKey)) {
+              setInterimText('')
+              lastInterimTextRef.current = ''
+              return
+            }
+            
+            // Check if this text is already in the transcript (use ref for immediate check)
+            const currentTranscript = transcriptRef.current.trim()
+            const endsWithText = currentTranscript && (
+              currentTranscript.endsWith(trimmedInterim) ||
+              currentTranscript.endsWith(trimmedInterim + ' ') ||
+              currentTranscript.trimEnd().endsWith(trimmedInterim)
+            )
+            
+            if (endsWithText) {
+              processedTextSetRef.current.add(rawTextKey)
+              processedTextSetRef.current.add(normalizedKey)
+              setInterimText('')
+              lastInterimTextRef.current = ''
+              return
+            }
+            
+            // Mark as processed BEFORE processing to prevent race conditions
+            processedTextSetRef.current.add(rawTextKey)
+            processedTextSetRef.current.add(normalizedKey)
+            
+            // Prevent memory leak by limiting Set size
+            if (processedTextSetRef.current.size > MAX_PROCESSED_TEXT_ENTRIES) {
+              const entries = Array.from(processedTextSetRef.current)
+              processedTextSetRef.current = new Set(entries.slice(-MAX_PROCESSED_TEXT_ENTRIES))
+            }
+            
+            lastProcessedFinalTextRef.current = trimmedInterim
+            
             // Finalize the interim text
             setTranscript(prev => {
+              // Double-check using current state (defensive check)
+              const stateTranscript = prev.trim()
+              if (stateTranscript && (
+                stateTranscript.endsWith(trimmedInterim) ||
+                stateTranscript.endsWith(trimmedInterim + ' ') ||
+                stateTranscript.trimEnd().endsWith(trimmedInterim)
+              )) {
+                return prev
+              }
+              
               const currentTranscript = transcriptRef.current
               const isNewSentence = !currentTranscript || /[.!?]\s*$/.test(currentTranscript.trim())
-              const punctuated = addPunctuation(currentInterim.trim(), punctuationSettingsRef.current, isNewSentence)
+              const punctuated = addPunctuation(trimmedInterim, punctuationSettingsRef.current, isNewSentence)
+              
+              // Check again if punctuated version is already there
+              const trimmedPunctuated = punctuated.trim()
+              if (stateTranscript && (
+                stateTranscript.endsWith(trimmedPunctuated) ||
+                stateTranscript.endsWith(trimmedPunctuated + ' ') ||
+                stateTranscript.trimEnd().endsWith(trimmedPunctuated)
+              )) {
+                return prev
+              }
               
               const separator = prev && !prev.endsWith(' ') ? ' ' : ''
               const newTranscript = prev + separator + punctuated + ' '
@@ -268,7 +394,7 @@ function HearBuddy() {
             setInterimText('')
             lastInterimTextRef.current = ''
           }
-        }, 600) // Finalize after 0.6 seconds of no new speech
+        }, INTERIM_TIMEOUT_MS) // Finalize after timeout of no new speech
       } else {
         setInterimText('')
         lastInterimTextRef.current = ''
@@ -291,8 +417,14 @@ function HearBuddy() {
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop()
+          recognitionRef.current.abort()
+          // Remove event handlers to prevent memory leaks
+          recognitionRef.current.onresult = null
+          recognitionRef.current.onerror = null
         } catch (e) {
-          // ignore
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Error cleaning up recognition:', e)
+          }
         }
       }
     }
@@ -319,6 +451,10 @@ function HearBuddy() {
         recognitionRef.current.start()
       } catch (e) {
         console.error('Error starting recognition:', e)
+        // Update status to inform user
+        setStatus('Error starting speech recognition. Please try again.')
+        setListening(false)
+        listeningRef.current = false
       }
     } else {
       try {
@@ -329,20 +465,55 @@ function HearBuddy() {
     }
   }, [listening])
 
-  // Auto-scroll transcript
+  // Auto-scroll transcript container and page (debounced for performance)
   useEffect(() => {
     const transcriptEl = document.getElementById('transcript')
     if (transcriptEl) {
+      // Scroll the transcript container to bottom
       transcriptEl.scrollTop = transcriptEl.scrollHeight
     }
-  }, [transcript, interimText])
+    
+    // Debounce page scrolling to prevent performance issues
+    const scrollTimeout = setTimeout(() => {
+      // Scroll the page to keep transcript area in view
+      // Only scroll if we're near the bottom of the page (user hasn't scrolled up)
+      if (transcriptContainerRef.current && listening) {
+        const container = transcriptContainerRef.current
+        if (!container) return
+        
+        const containerRect = container.getBoundingClientRect()
+        const viewportHeight = window.innerHeight
+        
+        // Check if container is in viewport and near bottom
+        const isNearBottom = containerRect.bottom <= viewportHeight + SCROLL_THRESHOLD_PX
+        const isAboveViewport = containerRect.bottom < 0
+        
+        // Only auto-scroll if container is visible or just above viewport
+        if (isNearBottom || isAboveViewport) {
+          // Use requestAnimationFrame for smoother scrolling
+          requestAnimationFrame(() => {
+            if (container) {
+              container.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'nearest',
+                inline: 'nearest'
+              })
+            }
+          })
+        }
+      }
+    }, 100) // Debounce scroll operations
+    
+    return () => clearTimeout(scrollTimeout)
+  }, [transcript, interimText, listening])
 
   const startListening = () => {
     if (!recognitionRef.current) return
     if (listening) return
     
-    // Reset tracking ref when starting fresh
+    // Reset tracking refs when starting fresh
     lastProcessedFinalTextRef.current = ''
+    processedTextSetRef.current.clear()
     
     setListening(true)
     trackStartListening()
@@ -360,16 +531,45 @@ function HearBuddy() {
     // Finalize any remaining interim text before stopping
     const currentInterim = lastInterimTextRef.current
     if (currentInterim && currentInterim.trim().length > 0) {
-      setTranscript(prev => {
-        const currentTranscript = transcriptRef.current
-        const isNewSentence = !currentTranscript || /[.!?]\s*$/.test(currentTranscript.trim())
-        const punctuated = addPunctuation(currentInterim.trim(), punctuationSettingsRef.current, isNewSentence)
+      const trimmedInterim = currentInterim.trim()
+      const rawTextKey = trimmedInterim.toLowerCase()
+      const normalizedKey = trimmedInterim.toLowerCase().replace(/[.!?]/g, '')
+      const currentTranscript = transcriptRef.current.trim()
+      
+      // Check if already processed or in transcript
+      const alreadyProcessed = processedTextSetRef.current.has(rawTextKey) || 
+                               processedTextSetRef.current.has(normalizedKey) ||
+                               (currentTranscript && (
+                                 currentTranscript.endsWith(trimmedInterim) ||
+                                 currentTranscript.endsWith(trimmedInterim + ' ') ||
+                                 currentTranscript.trimEnd().endsWith(trimmedInterim)
+                               ))
+      
+      if (!alreadyProcessed) {
+        processedTextSetRef.current.add(rawTextKey)
+        processedTextSetRef.current.add(normalizedKey)
+        lastProcessedFinalTextRef.current = trimmedInterim
         
-        const separator = prev && !prev.endsWith(' ') ? ' ' : ''
-        const newTranscript = prev + separator + punctuated + ' '
-        transcriptRef.current = newTranscript
-        return newTranscript
-      })
+        setTranscript(prev => {
+          const stateTranscript = prev.trim()
+          if (stateTranscript && (
+            stateTranscript.endsWith(trimmedInterim) ||
+            stateTranscript.endsWith(trimmedInterim + ' ') ||
+            stateTranscript.trimEnd().endsWith(trimmedInterim)
+          )) {
+            return prev
+          }
+          
+          const currentTranscript = transcriptRef.current
+          const isNewSentence = !currentTranscript || /[.!?]\s*$/.test(currentTranscript.trim())
+          const punctuated = addPunctuation(trimmedInterim, punctuationSettingsRef.current, isNewSentence)
+          
+          const separator = prev && !prev.endsWith(' ') ? ' ' : ''
+          const newTranscript = prev + separator + punctuated + ' '
+          transcriptRef.current = newTranscript
+          return newTranscript
+        })
+      }
     }
     
     setListening(false)
@@ -392,6 +592,7 @@ function HearBuddy() {
     setInterimText('')
     lastInterimTextRef.current = ''
     lastProcessedFinalTextRef.current = ''
+    processedTextSetRef.current.clear()
   }
 
   const displayTranscript = () => {
@@ -408,6 +609,14 @@ function HearBuddy() {
 
   return (
     <div className="w-screen min-h-screen">
+      {/* Skip to main content link for screen readers */}
+      <a 
+        href="#main-content" 
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-[var(--cp-blue)] focus:text-white focus:rounded-md focus:font-semibold"
+      >
+        Skip to main content
+      </a>
+      
       <Header 
         navItems={[
           { href: '/', label: 'Home' },
@@ -417,7 +626,7 @@ function HearBuddy() {
       
       <InstallButton />
       
-        <main className="max-w-5xl mx-auto px-4 pt-6 pb-10 md:px-6 md:pt-10 md:pb-16">
+        <main id="main-content" className="max-w-5xl mx-auto px-4 pt-6 pb-10 md:px-6 md:pt-10 md:pb-16">
           {/* Dedication */}
           <div className="text-center mb-6">
             <p className="text-lg md:text-base text-slate-400 italic">
@@ -436,7 +645,9 @@ function HearBuddy() {
             }}
             title="Punctuation settings"
             aria-label="Punctuation settings"
-            className="absolute top-4 right-4 md:top-5 md:right-6 p-2 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cp-blue)] focus-visible:ring-offset-2"
+            aria-expanded={showSettings}
+            aria-haspopup="true"
+            className="absolute top-4 right-4 md:top-5 md:right-6 p-2.5 min-w-[44px] min-h-[44px] rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cp-blue)] focus-visible:ring-offset-2"
           >
             <svg 
               className="w-5 h-5" 
@@ -460,22 +671,33 @@ function HearBuddy() {
           
           {/* Heading & Subtitle */}
           <header>
-            <div className="relative ">
+            <div className="relative">
+              {/* Listening pill - positioned above title, aligned with dog's head */}
+              {listening && (
+                <div 
+                  className="absolute top-[-10px] left-[75px] inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 border border-emerald-100 z-10 whitespace-nowrap"
+                  role="status"
+                  aria-live="polite"
+                  aria-label="Listening for captions"
+                >
+                <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
+                  Listening for captions
+                </div>
+              )}
               <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900">
                 <span className="inline-flex items-end gap-3">
                   <HearBuddyMascot className="w-16 h-16 md:w-16 md:h-16" listening={listening} />
                   <span>Hear Buddy</span>
                 </span>
               </h1>
-               <span className="text-sm md:text-base text-slate-600 mt-1 max-w-xl">
-              A simple, installable web app that converts speech to live captions.
-            </span>
+              <p className="text-sm md:text-base text-slate-600 mt-1 max-w-xl">
+                A simple, installable web app that converts speech to live captions.
+              </p>
             </div>
-           
           </header>
 
           {/* Button Row */}
-          <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3 mt-3">
+          <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3 mt-3" role="toolbar" aria-label="Caption controls">
             {listening ? (
               <Button
                 id="stopBtn"
@@ -483,7 +705,7 @@ function HearBuddy() {
                 title="Stop listening"
                 aria-label="Stop listening"
                 variant="primary"
-                className="w-full md:w-auto !bg-[var(--cp-red)] hover:!bg-[var(--cp-red)]/90 !text-white"
+                className="w-full md:w-auto min-h-[44px] !bg-[var(--cp-red)] hover:!bg-[var(--cp-red)]/90 !text-white"
               >
                 Stop
               </Button>
@@ -494,7 +716,7 @@ function HearBuddy() {
                 title="Start listening"
                 aria-label="Start listening"
                 variant="primary"
-                className="w-full md:w-auto bg-[var(--cp-green)] hover:bg-[var(--cp-green)]/90 text-white"
+                className="w-full md:w-auto min-h-[44px] bg-[var(--cp-green)] hover:bg-[var(--cp-green)]/90 text-white"
               >
                 Start Listening
               </Button>
@@ -506,25 +728,23 @@ function HearBuddy() {
                 title="Clear captions"
                 aria-label="Clear captions"
                 variant="secondary"
-                className="w-full md:w-auto"
+                className="w-full md:w-auto min-h-[44px]"
               >
                 Clear
               </Button>
             )}
-              {/* Listening pill - positioned above title, aligned with dog's head */}
-              {listening && (
-                <div className=" inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 border border-emerald-100 z-10 whitespace-nowrap">
-                  <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                  Listening for captions
-                </div>
-              )}
           </div>
 
 
           {/* Settings Panel */}
           {showSettings && (
-            <Card className="absolute top-12 right-4 md:top-14 md:right-6 z-10 w-56 border border-slate-200 shadow-lg">
-              <h3 className="m-0 mb-2 text-sm font-bold text-slate-900">Punctuation Settings</h3>
+            <Card 
+              className="absolute top-12 right-4 md:top-14 md:right-6 z-10 w-56 md:w-64 border border-slate-200 shadow-lg"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="settings-heading"
+            >
+              <h3 id="settings-heading" className="m-0 mb-2 text-sm font-bold text-slate-900">Punctuation Settings</h3>
               {/* <label className="flex items-center gap-2 py-1.5 cursor-pointer text-slate-700">
                 <input
                   type="checkbox"
@@ -534,23 +754,25 @@ function HearBuddy() {
                 />
                 <span className="select-none text-sm">Auto punctuation</span>
               </label> */}
-              <label className="flex items-center gap-2 py-1.5 cursor-pointer text-slate-700">
+              <label className="flex items-center gap-2 py-2 min-h-[44px] cursor-pointer text-slate-700">
                 <input
                   type="checkbox"
                   checked={punctuationSettings.detectQuestions}
                   onChange={(e) => setPunctuationSettings(prev => ({ ...prev, detectQuestions: e.target.checked }))}
                   disabled={!punctuationSettings.autoPunctuation}
-                  className="w-4 h-4 cursor-pointer accent-[var(--cp-blue)] disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Detect questions"
+                  className="w-5 h-5 cursor-pointer accent-[var(--cp-blue)] disabled:opacity-50 disabled:cursor-not-allowed"
                 />
                 <span className="select-none text-sm">Detect questions</span>
               </label>
-              <label className="flex items-center gap-2 py-1.5 cursor-pointer text-slate-700">
+              <label className="flex items-center gap-2 py-2 min-h-[44px] cursor-pointer text-slate-700">
                 <input
                   type="checkbox"
                   checked={punctuationSettings.addPeriods}
                   onChange={(e) => setPunctuationSettings(prev => ({ ...prev, addPeriods: e.target.checked }))}
                   disabled={!punctuationSettings.autoPunctuation}
-                  className="w-4 h-4 cursor-pointer accent-[var(--cp-blue)] disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Add periods to statements"
+                  className="w-5 h-5 cursor-pointer accent-[var(--cp-blue)] disabled:opacity-50 disabled:cursor-not-allowed"
                 />
                 <span className="select-none text-sm">Add periods to statements</span>
               </label>
@@ -558,14 +780,23 @@ function HearBuddy() {
           )}
 
           {/* Transcript Panel */}
-          <article className={`rounded-2xl border bg-slate-50/80 mt-2 transition-shadow ${
-            listening 
-              ? "border-emerald-200 shadow-[0_0_0_1px_rgba(16,185,129,0.15)]" 
-              : "border-slate-200 shadow-none"
-          }`}>
+          <article 
+            ref={transcriptContainerRef}
+            className={`rounded-2xl border bg-slate-50/80 mt-2 transition-shadow ${
+              listening 
+                ? "border-emerald-200 shadow-[0_0_0_1px_rgba(16,185,129,0.15)]" 
+                : "border-slate-200 shadow-none"
+            }`}
+            aria-labelledby="transcript-heading"
+          >
             <div className="min-h-[280px] md:min-h-[340px] rounded-2xl bg-white/70 px-4 py-3 md:px-5 md:py-4 flex flex-col">
-              <h2 className="sr-only">Live transcript</h2>
-              <div className="h-full max-h-[420px] overflow-y-auto pr-1 text-lg md:text-xl leading-relaxed text-slate-800">
+              <h2 id="transcript-heading" className="sr-only">Live transcript</h2>
+              <div 
+                className="h-full max-h-[420px] overflow-y-auto pr-1 text-lg md:text-xl leading-relaxed text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cp-blue)] focus-visible:ring-offset-2 rounded-lg"
+                tabIndex={0}
+                role="log"
+                aria-label="Live captions"
+              >
                 {transcript.length === 0 && !interimText ? (
                   <p className="text-slate-400 text-lg md:text-xl italic">
                     Captions will appear here when someone starts talking.
@@ -581,14 +812,22 @@ function HearBuddy() {
                   </div>
                 )}
               </div>
-              <div id="status" className="text-slate-500 text-sm md:text-base mt-3 text-left" aria-live="polite">
-                {status}
-              </div>
+              {status && (
+                <div 
+                  id="status" 
+                  className="text-slate-500 text-sm md:text-base mt-3 text-left" 
+                  role="status"
+                  aria-live="polite"
+                  aria-atomic="true"
+                >
+                  {status}
+                </div>
+              )}
             </div>
           </article>
           
           {/* Fidget spinner in bottom-right of the card */}
-          <div className="hidden sm:block absolute bottom-4 right-4">
+          <div className="hidden sm:block absolute bottom-4 right-4" aria-hidden="true">
             <CleverFidgetSpinner />
           </div>
         </section>

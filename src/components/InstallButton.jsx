@@ -8,7 +8,7 @@ export default function InstallButton() {
 
   useEffect(() => {
     // Detect if device is Android
-    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    const userAgent = navigator.userAgent || navigator.vendor || '';
     const android = /android/i.test(userAgent);
     setIsAndroid(android);
 
@@ -102,7 +102,8 @@ export default function InstallButton() {
           {deferredPrompt ? (
             <button
               onClick={handleInstallClick}
-              className="px-3 py-1.5 rounded-md bg-white border border-slate-300 text-slate-700 text-xs font-medium hover:bg-slate-50 hover:border-slate-400 transition whitespace-nowrap"
+              className="px-3 py-2 min-h-[44px] rounded-md bg-white border border-slate-300 text-slate-700 text-xs font-medium hover:bg-slate-50 hover:border-slate-400 transition whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[var(--cp-blue)] focus:ring-offset-2"
+              aria-label="Install Hear Buddy app"
             >
               Install
             </button>
@@ -111,7 +112,7 @@ export default function InstallButton() {
           )}
           <button
             onClick={handleDismiss}
-            className="p-1 rounded-md hover:bg-slate-200/50 transition text-slate-400 hover:text-slate-600"
+            className="p-2 min-w-[44px] min-h-[44px] rounded-md hover:bg-slate-200/50 transition text-slate-400 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-[var(--cp-blue)] focus:ring-offset-2"
             aria-label="Dismiss install banner"
             title="Dismiss"
           >
