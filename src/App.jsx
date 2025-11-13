@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
+import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom'
 import { Header, Button, Card, Footer } from './cleverpixel-design-system/src';
+import Contact from './pages/Contact'
 import './App.css'
 
 // Question detection patterns
@@ -95,7 +97,7 @@ function addPunctuation(text, config, isNewSentence = false) {
   return trimmed
 }
 
-function App() {
+function HearingHelper() {
   const [transcript, setTranscript] = useState('')
   const [interimText, setInterimText] = useState('')
   const [status, setStatus] = useState('')
@@ -104,6 +106,7 @@ function App() {
   const [showInstallTip, setShowInstallTip] = useState(false)
   const [punctuationSettings, setPunctuationSettings] = useState(PUNCTUATION_CONFIG)
   const [showSettings, setShowSettings] = useState(false)
+  const navigate = useNavigate()
   
   const recognitionRef = useRef(null)
   const listeningRef = useRef(false)
@@ -317,7 +320,7 @@ function App() {
       return (
         <>
           {transcript}
-          <em className="opacity-60 italic text-[var(--cp-ink)]/70">{interimText}</em>
+          <em className="opacity-60 italic text-slate-600">{interimText}</em>
         </>
       )
     }
@@ -326,119 +329,141 @@ function App() {
 
   return (
     <div className="w-screen min-h-screen">
-      <div className="w-full px-6 py-6">
-         <Header 
+      <Header 
         navItems={[
+          { href: '/', label: 'Home' },
           { href: '#work', label: 'Work' },
           { href: '#about', label: 'About' },
         ]}
-        onContactClick={() => console.log('Contact clicked')}
+        onContactClick={() => navigate('/contact')}
       />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <h1 className="text-4xl font-extrabold mb-4 text-[var(--cp-ink)]">Hearing Helper</h1>
-      <p className="text-[var(--cp-ink)]/70 mb-8 text-lg">A simple, installable PWA that converts speech to live captions.</p>
-
-      <div className="flex gap-4 flex-wrap mb-6" role="group" aria-label="app controls">
-        <Button
-          id="installBtn"
-          onClick={handleInstall}
-          disabled={!installPrompt}
-          title="Install app"
-          aria-label="Install app"
-          variant="secondary"
-        >
-          Install
-        </Button>
-        <Button
-          id="startBtn"
-          onClick={startListening}
-          disabled={listening}
-          title="Start listening"
-          aria-label="Start listening"
-          variant="primary"
-          className="bg-[var(--cp-green)] hover:bg-[var(--cp-green)]/90 text-white"
-        >
-          Start Listening
-        </Button>
-        <Button
-          id="stopBtn"
-          onClick={() => stopListening(false)}
-          disabled={!listening}
-          title="Stop listening"
-          aria-label="Stop listening"
-          variant="primary"
-          className="!bg-[var(--cp-red)] hover:!bg-[var(--cp-red)]/90 !text-white"
-        >
-          Stop
-        </Button>
-        <Button
-          id="settingsBtn"
-          onClick={() => setShowSettings(!showSettings)}
-          title="Punctuation settings"
-          aria-label="Punctuation settings"
-          variant="secondary"
-        >
-          ⚙️ Settings
-        </Button>
-      </div>
       
-      {showSettings && (
-        <Card className="mb-6">
-          <h3 className="m-0 mb-4 text-lg font-bold text-[var(--cp-ink)]">Punctuation Settings</h3>
-          <label className="flex items-center gap-2.5 py-2 cursor-pointer text-[var(--cp-ink)]">
-            <input
-              type="checkbox"
-              checked={punctuationSettings.autoPunctuation}
-              onChange={(e) => setPunctuationSettings(prev => ({ ...prev, autoPunctuation: e.target.checked }))}
-              className="w-[18px] h-[18px] cursor-pointer accent-[var(--cp-blue)] disabled:opacity-50 disabled:cursor-not-allowed"
-            />
-            <span className="select-none">Auto punctuation</span>
-          </label>
-          <label className="flex items-center gap-2.5 py-2 cursor-pointer text-[var(--cp-ink)]">
-            <input
-              type="checkbox"
-              checked={punctuationSettings.detectQuestions}
-              onChange={(e) => setPunctuationSettings(prev => ({ ...prev, detectQuestions: e.target.checked }))}
-              disabled={!punctuationSettings.autoPunctuation}
-              className="w-[18px] h-[18px] cursor-pointer accent-[var(--cp-blue)] disabled:opacity-50 disabled:cursor-not-allowed"
-            />
-            <span className="select-none">Detect questions</span>
-          </label>
-          <label className="flex items-center gap-2.5 py-2 cursor-pointer text-[var(--cp-ink)]">
-            <input
-              type="checkbox"
-              checked={punctuationSettings.addPeriods}
-              onChange={(e) => setPunctuationSettings(prev => ({ ...prev, addPeriods: e.target.checked }))}
-              disabled={!punctuationSettings.autoPunctuation}
-              className="w-[18px] h-[18px] cursor-pointer accent-[var(--cp-blue)] disabled:opacity-50 disabled:cursor-not-allowed"
-            />
-            <span className="select-none">Add periods to statements</span>
-          </label>
-        </Card>
-      )}
-      
-      {showInstallTip && (
-        <p className="text-[var(--cp-ink)]/60 text-sm mt-2 mb-4" id="installTip">
-          Tip: If the Install button is disabled, use your browser menu to "Add to Home Screen".
-        </p>
-      )}
+      <main className="max-w-5xl mx-auto px-4 md:px-6 pt-10 pb-16">
+        <section className="rounded-3xl bg-white shadow-md border border-slate-200 px-4 py-5 md:px-6 md:py-7 space-y-4">
+          {/* Heading & Subtitle */}
+          <div>
+            <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900">
+              <span className="inline-flex items-center gap-2">
+                <span>Hearing Helper</span>
+                <span className="inline-flex h-6 px-2 rounded-full bg-slate-100 text-[11px] font-medium tracking-wide text-slate-500">
+                  Live captions
+                </span>
+              </span>
+            </h1>
+            <p className="text-sm md:text-base text-slate-600 mt-1 max-w-xl">
+              A simple, installable PWA that converts speech to live captions.
+            </p>
+          </div>
 
-      <Card>
-        <h2 className="sr-only">Live transcript</h2>
-        <div
-          id="transcript"
-          className="min-h-[40vh] text-xl leading-relaxed tracking-wide text-left text-[var(--cp-ink)]"
-          role="status"
-          aria-live="polite"
-          aria-atomic="false"
-        >
-          {displayTranscript()}
-        </div>
-        <div id="status" className="text-[var(--cp-ink)]/60 text-[0.95rem] mt-3 text-left" aria-live="polite">
-          {status}
-        </div>
-      </Card>
-      </div>
+          {/* Button Row */}
+          <div className="flex flex-wrap items-center gap-3 pt-2">
+            <Button
+              id="installBtn"
+              onClick={handleInstall}
+              disabled={!installPrompt}
+              title="Install app"
+              aria-label="Install app"
+              variant="secondary"
+              className={!installPrompt ? "bg-slate-50 text-slate-400 border border-slate-200 cursor-not-allowed" : ""}
+            >
+              Install
+            </Button>
+            <Button
+              id="startBtn"
+              onClick={startListening}
+              disabled={listening}
+              title="Start listening"
+              aria-label="Start listening"
+              variant="primary"
+              className="bg-[var(--cp-green)] hover:bg-[var(--cp-green)]/90 text-white"
+            >
+              Start Listening
+            </Button>
+            <Button
+              id="stopBtn"
+              onClick={() => stopListening(false)}
+              disabled={!listening}
+              title="Stop listening"
+              aria-label="Stop listening"
+              variant="primary"
+              className="!bg-[var(--cp-red)] hover:!bg-[var(--cp-red)]/90 !text-white"
+            >
+              Stop
+            </Button>
+            <Button
+              id="settingsBtn"
+              onClick={() => setShowSettings(!showSettings)}
+              title="Punctuation settings"
+              aria-label="Punctuation settings"
+              variant="secondary"
+            >
+              ⚙️ Settings
+            </Button>
+          </div>
+
+          {/* Tip Text */}
+          {showInstallTip && (
+            <p className="text-xs md:text-sm text-slate-500" id="installTip">
+              Tip: If the Install button is disabled, use your browser menu to "Add to Home Screen".
+            </p>
+          )}
+
+          {/* Settings Panel */}
+          {showSettings && (
+            <Card className="border border-slate-200">
+              <h3 className="m-0 mb-4 text-lg font-bold text-slate-900">Punctuation Settings</h3>
+              <label className="flex items-center gap-2.5 py-2 cursor-pointer text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={punctuationSettings.autoPunctuation}
+                  onChange={(e) => setPunctuationSettings(prev => ({ ...prev, autoPunctuation: e.target.checked }))}
+                  className="w-[18px] h-[18px] cursor-pointer accent-[var(--cp-blue)] disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+                <span className="select-none">Auto punctuation</span>
+              </label>
+              <label className="flex items-center gap-2.5 py-2 cursor-pointer text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={punctuationSettings.detectQuestions}
+                  onChange={(e) => setPunctuationSettings(prev => ({ ...prev, detectQuestions: e.target.checked }))}
+                  disabled={!punctuationSettings.autoPunctuation}
+                  className="w-[18px] h-[18px] cursor-pointer accent-[var(--cp-blue)] disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+                <span className="select-none">Detect questions</span>
+              </label>
+              <label className="flex items-center gap-2.5 py-2 cursor-pointer text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={punctuationSettings.addPeriods}
+                  onChange={(e) => setPunctuationSettings(prev => ({ ...prev, addPeriods: e.target.checked }))}
+                  disabled={!punctuationSettings.autoPunctuation}
+                  className="w-[18px] h-[18px] cursor-pointer accent-[var(--cp-blue)] disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+                <span className="select-none">Add periods to statements</span>
+              </label>
+            </Card>
+          )}
+
+          {/* Transcript Panel */}
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/80 mt-2">
+            <div className="min-h-[280px] md:min-h-[340px] rounded-2xl bg-white/70 px-4 py-3 md:px-5 md:py-4">
+              <h2 className="sr-only">Live transcript</h2>
+              <div
+                id="transcript"
+                className="text-base md:text-lg leading-relaxed tracking-wide text-left text-slate-800"
+                role="status"
+                aria-live="polite"
+                aria-atomic="false"
+              >
+                {displayTranscript()}
+              </div>
+              <div id="status" className="text-slate-500 text-sm md:text-base mt-3 text-left" aria-live="polite">
+                {status}
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
       
       <Footer 
         links={[
@@ -447,8 +472,18 @@ function App() {
         ]}
         copyrightText="Crafted with playful precision"
       />
-      </div>
     </div>
+  )
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<HearingHelper />} />
+        <Route path="/contact" element={<Contact />} />
+      </Routes>
+    </BrowserRouter>
   )
 }
 

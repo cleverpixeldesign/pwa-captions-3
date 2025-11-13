@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icons/icon-192.png', 'icons/icon-512.png'],
+      includeAssets: ['assets/favicon-196x196.png', 'assets/favicon-128x128.png'],
       manifest: {
         name: 'Hearing Helper',
         short_name: 'Helper',
@@ -18,14 +18,32 @@ export default defineConfig({
         display: 'standalone',
         icons: [
           {
-            src: 'icons/icon-192.png',
-            sizes: '192x192',
+            src: 'assets/favicon-196x196.png',
+            sizes: '196x196',
             type: 'image/png',
             purpose: 'any maskable'
           },
           {
-            src: 'icons/icon-512.png',
-            sizes: '512x512',
+            src: 'assets/favicon-128x128.png',
+            sizes: '128x128',
+            type: 'image/png',
+            purpose: 'any maskable'
+          },
+          {
+            src: 'assets/favicon-96x96.png',
+            sizes: '96x96',
+            type: 'image/png',
+            purpose: 'any maskable'
+          },
+          {
+            src: 'assets/favicon-32x32.png',
+            sizes: '32x32',
+            type: 'image/png',
+            purpose: 'any maskable'
+          },
+          {
+            src: 'assets/favicon-16x16.png',
+            sizes: '16x16',
             type: 'image/png',
             purpose: 'any maskable'
           }
