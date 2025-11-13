@@ -1,0 +1,22 @@
+/* Import Clever Pixel Design System base styles - must be first */
+@import './cleverpixel-design-system/src/styles/base.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    @apply m-0;
+    /* Use design system colors */
+    background-color: var(--cp-cream);
+    color: var(--cp-ink);
+    width: 100vw;
+    overflow-x: hidden;
+  }
+}
