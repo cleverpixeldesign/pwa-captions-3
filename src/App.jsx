@@ -178,6 +178,10 @@ function HearBuddy() {
         }
       }
 
+      // Cache current transcript state for both checks
+      const currentTranscript = transcriptRef.current
+      const isNewSentence = !currentTranscript || /[.!?]\s*$/.test(currentTranscript.trim())
+
       // 1) Handle FINAL text
       if (finalChunk && finalChunk.trim()) {
         const trimmedFinal = finalChunk.trim()
@@ -189,35 +193,27 @@ function HearBuddy() {
           return
         }
 
-        const currentTranscript = transcriptRef.current
-        const isNewSentence =
-          !currentTranscript || /[.!?]\s*$/.test(currentTranscript.trim())
-
-        // Apply punctuation rules
+        // Apply punctuation rules (only if auto-punctuation is on)
         const textToAdd = punctuationSettingsRef.current.autoPunctuation
           ? addPunctuation(trimmedFinal, punctuationSettingsRef.current, isNewSentence)
-          : capitalizeFirst(trimmedFinal)
+          : (isNewSentence ? capitalizeFirst(trimmedFinal) : trimmedFinal)
 
-        const separator =
-          currentTranscript && !currentTranscript.endsWith(' ') ? ' ' : ''
+        // Build next transcript more efficiently
+        const separator = currentTranscript && !currentTranscript.endsWith(' ') ? ' ' : ''
+        const nextTranscript = currentTranscript + separator + textToAdd + ' '
 
-        const nextTranscript =
-          (currentTranscript || '') + separator + textToAdd + ' '
-
+        // Update refs first (synchronous)
         transcriptRef.current = nextTranscript
         lastFinalTextRef.current = trimmedFinal
+        lastInterimTextRef.current = ''
 
+        // Batch state updates
         setTranscript(nextTranscript)
         setInterimText('')
-        lastInterimTextRef.current = ''
       }
 
       // 2) Handle INTERIM text (live, not committed)
-      if (interimChunk) {
-        const currentTranscript = transcriptRef.current
-        const isNewSentence =
-          !currentTranscript || /[.!?]\s*$/.test(currentTranscript.trim())
-
+      else if (interimChunk) {
         const displayInterim = isNewSentence
           ? capitalizeFirst(interimChunk)
           : interimChunk
@@ -289,36 +285,36 @@ function HearBuddy() {
     }
   }, [listening])
 
-  // Auto-scroll transcript container and page (debounced for performance)
+  // Auto-scroll transcript container (optimized for performance)
   useEffect(() => {
+    if (!listening) return // Only scroll when actively listening
+    
     if (transcriptScrollRef.current) {
-      // Scroll the transcript container to bottom
+      // Instant scroll (no smooth animation to reduce lag)
       transcriptScrollRef.current.scrollTop = transcriptScrollRef.current.scrollHeight
     }
 
-    const scrollTimeout = setTimeout(() => {
-      if (transcriptContainerRef.current && listening) {
+    // Only do page scroll on final text updates (not interim)
+    if (!interimText && transcript && transcriptContainerRef.current) {
+      const scrollTimeout = setTimeout(() => {
         const container = transcriptContainerRef.current
+        if (!container) return
+        
         const containerRect = container.getBoundingClientRect()
         const viewportHeight = window.innerHeight
 
-        const isNearBottom = containerRect.bottom <= viewportHeight + SCROLL_THRESHOLD_PX
-        const isAboveViewport = containerRect.bottom < 0
-
-        if (isNearBottom || isAboveViewport) {
-          requestAnimationFrame(() => {
-            container.scrollIntoView({
-              behavior: 'smooth',
-              block: 'nearest',
-              inline: 'nearest',
-            })
+        // Only scroll if container is below viewport
+        if (containerRect.bottom > viewportHeight + SCROLL_THRESHOLD_PX) {
+          container.scrollIntoView({
+            behavior: 'auto', // Changed from 'smooth' for instant response
+            block: 'nearest',
           })
         }
-      }
-    }, 100)
+      }, 200) // Increased debounce for page scrolls
 
-    return () => clearTimeout(scrollTimeout)
-  }, [transcript, interimText, listening])
+      return () => clearTimeout(scrollTimeout)
+    }
+  }, [transcript, listening]) // Removed interimText to reduce scroll frequency
 
   const startListening = () => {
     if (!recognitionRef.current) return
