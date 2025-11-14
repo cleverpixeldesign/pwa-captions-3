@@ -13,9 +13,6 @@ const QUESTION_WORDS = /\b(what|where|when|who|why|how|which|whose|whom)\b/i
 const QUESTION_STARTERS = /\b(is|are|was|were|do|does|did|can|could|would|should|will|shall|may|might|have|has|had)\b/i
 const QUESTION_ENDINGS = /\b(right|correct|okay|ok|sure|huh|eh)\s*$/i
 
-// Constants
-const SCROLL_THRESHOLD_PX = 100 // Distance from bottom to trigger auto-scroll (px)
-
 // Punctuation configuration
 const PUNCTUATION_CONFIG = {
   autoPunctuation: true,
@@ -111,7 +108,6 @@ function HearBuddy() {
   const recognitionRef = useRef(null)
   const listeningRef = useRef(false)
   const transcriptContainerRef = useRef(null)
-  const transcriptScrollRef = useRef(null) // scrollable container
   const lastInterimTextRef = useRef('')
   const lastFinalTextRef = useRef('') // Track last final text to prevent immediate duplicates
   const transcriptRef = useRef('') // Keep ref of transcript for immediate checks
@@ -284,37 +280,6 @@ function HearBuddy() {
       }
     }
   }, [listening])
-
-  // Auto-scroll transcript container (optimized for performance)
-  useEffect(() => {
-    if (!listening) return // Only scroll when actively listening
-    
-    if (transcriptScrollRef.current) {
-      // Instant scroll (no smooth animation to reduce lag)
-      transcriptScrollRef.current.scrollTop = transcriptScrollRef.current.scrollHeight
-    }
-
-    // Only do page scroll on final text updates (not interim)
-    if (!interimText && transcript && transcriptContainerRef.current) {
-      const scrollTimeout = setTimeout(() => {
-        const container = transcriptContainerRef.current
-        if (!container) return
-        
-        const containerRect = container.getBoundingClientRect()
-        const viewportHeight = window.innerHeight
-
-        // Only scroll if container is below viewport
-        if (containerRect.bottom > viewportHeight + SCROLL_THRESHOLD_PX) {
-          container.scrollIntoView({
-            behavior: 'auto', // Changed from 'smooth' for instant response
-            block: 'nearest',
-          })
-        }
-      }, 200) // Increased debounce for page scrolls
-
-      return () => clearTimeout(scrollTimeout)
-    }
-  }, [transcript, listening]) // Removed interimText to reduce scroll frequency
 
   const startListening = () => {
     if (!recognitionRef.current) return
@@ -614,11 +579,10 @@ function HearBuddy() {
                 Live transcript
               </h2>
               <div
-                className="h-full max-h-[420px] overflow-y-auto pr-1 text-lg md:text-xl leading-relaxed text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cp-blue)] focus-visible:ring-offset-2 rounded-lg"
+                className="text-lg md:text-xl leading-relaxed text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cp-blue)] focus-visible:ring-offset-2 rounded-lg"
                 tabIndex={0}
                 role="log"
                 aria-label="Live captions"
-                ref={transcriptScrollRef}
               >
                 {transcript.length === 0 && !interimText ? (
                   <p className="text-slate-400 text-lg md:text-xl italic">
